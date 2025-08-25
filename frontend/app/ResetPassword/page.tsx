@@ -1,5 +1,5 @@
 import React from 'react'
-import { SignupFormDemo } from './SignupFormDemo'
+import ResetPassword from './ResetPassword'
 
 const page = () => {
   return (
@@ -8,7 +8,7 @@ const page = () => {
         backgroundImage:
           "url('https://res.cloudinary.com/dc1fkirb4/image/upload/v1756099416/abstract-square-interface-modern-background-concept-fingerprint-digital-scanning-visual-security-system-authentication-login-vector_adnpaf.jpg')"
       }}>
-        <SignupFormDemo />
+      <ResetPassword />
     </div>
   )
 }
