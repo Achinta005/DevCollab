@@ -55,7 +55,7 @@ const LoginPage = () => {
         } else {
           localStorage.setItem("token", data.token);
         }
-        router.push("/Editor");
+        router.push("/");
         router.refresh();
       } else {
         setError(data.message || "Login failed");

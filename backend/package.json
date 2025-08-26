@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "_moduleAliases": {
+    "@config": "config"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
@@ -18,10 +21,14 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.2.0",
     "bcryptjs": "^3.0.2",
+    "cloudinary": "^1.41.3",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
     "mongoose": "^8.17.0",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^7.0.5",
     "otp-generator": "^4.0.1",
     "redis": "^5.8.0",
