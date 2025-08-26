@@ -16,7 +16,7 @@ const Join_Project = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState(""); // Added error state
   const [loading, setLoading] = useState(false);
-  const [project, setProject] = useState<any>({});
+const [project, setProject] = useState<Record<string, unknown>>({});
   const [token, setToken] = useState<string | null>(null);
   const [joinMsg, setjoinMsg] = useState<string | null>(null);
 
@@ -29,14 +29,16 @@ const Join_Project = () => {
     }
   }, []);
 
-  const handleSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  setSuccess("");
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/link_projects`, {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/projects/link_projects`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -45,23 +47,24 @@ const Join_Project = () => {
         body: JSON.stringify({
           inviteCode: formData.inviteCode,
         }),
-      });
-
-      const data = await response.json();
-      console.log(data.data)
-      setProject(data.data);
-
-      if (response.ok && data.success) {
-        setSuccess(`Project Found: ${data.data.name} by ${data.data.owner.username}`);
-      } else {
-        setError(data.message || "Unable to fetch project");
       }
-    } catch (err) {
-      setError("Server error. Please try again later.");
-    } finally {
-      setLoading(false);
+    );
+
+    const data = await response.json();
+    console.log(data.data);
+    setProject(data.data);
+
+    if (response.ok && data.success) {
+      setSuccess(`Project Found: ${data.data.name} by ${data.data.owner.username}`);
+    } else {
+      setError(data.message || "Unable to fetch project");
     }
-  };
+  } catch (_err) {
+    setError("Server error. Please try again later.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
