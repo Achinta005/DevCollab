@@ -28,32 +28,32 @@ const ResetPassword = () => {
     });
 
 
-   const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement>
-) => {
-  const { name, value } = e.target;
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const { name, value } = e.target;
 
-  if (name === "username") {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  } else if (name === "otp") {
-    setOtpData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  } else if (name === "password" || name === "confirmPassword") {
-    setNewPasswordData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  }
-};
+        if (name === "username") {
+            setFormData((prev) => ({
+                ...prev,
+                [name]: value,
+            }));
+        } else if (name === "otp") {
+            setOtpData((prev) => ({
+                ...prev,
+                [name]: value,
+            }));
+        } else if (name === "password" || name === "confirmPassword") {
+            setNewPasswordData((prev) => ({
+                ...prev,
+                [name]: value,
+            }));
+        }
+    };
 
 
     // Handle username submission and email lookup
-    const handleUsernameSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUsernameSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -71,15 +71,19 @@ const ResetPassword = () => {
             setUserEmail(data.email);
             setStep('otp');
 
-        } catch (err) {
-            setError(err.message || "Failed to find user. Please check your username.");
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Failed to process request");
+            }
         } finally {
             setLoading(false);
         }
     };
 
     // Handle OTP sending
-    const handleSendOTP = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSendOTP = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -110,7 +114,7 @@ const ResetPassword = () => {
     };
 
     // Handle OTP verification
-    const handleOTPSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleOTPSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -119,20 +123,20 @@ const ResetPassword = () => {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    email: userEmail, 
-                    otp: otpData.otp 
+                body: JSON.stringify({
+                    email: userEmail,
+                    otp: otpData.otp
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to verify OTP');
             }
-            
+
             setStep('newPassword');
-            
+
         } catch (err) {
             setError(err.message || "Invalid OTP. Please try again.");
         } finally {
@@ -141,7 +145,7 @@ const ResetPassword = () => {
     };
 
     // Handle new password submission
-    const handlePasswordSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -162,21 +166,21 @@ const ResetPassword = () => {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     username: formData.username,
-                    newPassword: newPasswordData.password 
+                    newPassword: newPasswordData.password
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to reset password');
             }
-            
+
             // Redirect to login page or show success message
             router.push('/Login?message=Password reset successful');
-            
+
         } catch (err) {
             setError(err.message || "Failed to reset password. Please try again.");
         } finally {
