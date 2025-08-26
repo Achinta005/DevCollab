@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Input } from "../../components/ui/input";
 import { cn } from "../lib/util";
 import { useRouter } from "next/navigation";
 import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react";

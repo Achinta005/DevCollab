@@ -6,8 +6,8 @@ import { setAuthToken } from "../lib/auth";
 import React from "react";
 // import OAuth from "./oAuth";
 import Link from "next/link";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Input } from "../../components/ui/input";
 import { cn } from "../lib/util";
 
 const LoginPage = () => {
