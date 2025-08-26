@@ -3,7 +3,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { LogIn, LogOut, X, User, Settings, CircleGauge , ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { getUserFromToken, TokenPayload } from '@/app/lib/auth';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 const ProfileNavigationPopup = ({ isOpen, onClose, position = "bottom", onNavigate, onLogout }) => {

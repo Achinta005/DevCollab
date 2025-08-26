@@ -96,7 +96,7 @@ export function SignupFormDemo() {
                         </LabelInputContainer>
                         <LabelInputContainer>
                             <Label htmlFor="lastname">Last name</Label>
-                            <Input id="lastname" name="lastname" type="text" value={formData.lastname} onChange={handleChange} required />
+                            <Input id="lastname" name="lastname" type="text" value={formData.lastname} onChange={handleChange}/>
                         </LabelInputContainer>
                     </div>
                     <LabelInputContainer className="mb-4">

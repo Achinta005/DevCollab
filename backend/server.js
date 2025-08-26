@@ -35,6 +35,7 @@ app.use('/api/auth',authRoutes);
 app.use('/api/reset',resetPassword)
 app.use('/api/get',getProfilePicture)
 app.use('/api/image',Profile_picture_modification)
+app.use('/api/projects', require('./routes/projectRoutes'));
 
 connectDB();
 

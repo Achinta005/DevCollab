@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "DevCollab",
-  description: "DevCollab is a comprehensive real-time developer collaboration platform that combines code editing,project management and communication features.This projectis designed to help you learn advanced webdevelopmenttechnologies while creating an impressive portfolio piece."
+  description: "DevCollab is a comprehensive real-time developer collaboration platform that combines code editing,project management and communication features.This projectis designed to help you learn advanced webdevelopmenttechnologies while creating an impressive portfolio piece.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
