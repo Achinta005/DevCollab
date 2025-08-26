@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LogIn, LogOut, X, User, Settings, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { getUserFromToken } from '@/app/lib/auth';
+import { getUserFromToken } from '../app/lib/auth';
 import { useRouter } from 'next/navigation';
 
 const ProfileNavigationPopup = ({ isOpen, onClose, position = "bottom", onNavigate, onLogout }) => {
