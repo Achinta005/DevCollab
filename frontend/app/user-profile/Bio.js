@@ -1,33 +1,27 @@
 "use client";
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { getUserFromToken, TokenPayload } from "../lib/auth";
+import { getUserFromToken, setAuthToken } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { SquarePen, Check, X, Loader2 } from "lucide-react";
 import Profile_Settings from "./prfofile-setting";
 import Link from "next/link";
 
-interface CropArea {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 const Bio = () => {
-  const [user, setUser] = useState<TokenPayload | null>(null);
-  const [image, setImage] = useState<string | null>(null);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
+  const [user, setUser] = useState(null);
+  const [image, setImage] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [img, setImg] = useState<string>("");
+  const [img, setImg] = useState("");
   const [showCropper, setShowCropper] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
 
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef(null);
 
   // Authentication check
   useEffect(() => {
@@ -51,24 +45,21 @@ const Bio = () => {
     }
   }, [user?.username]);
 
-  const onCropComplete = useCallback((_: any, croppedAreaPixels: CropArea) => {
+  const onCropComplete = useCallback((_, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
-  //Handle image chang
-  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = useCallback((e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file");
       return;
     }
 
-    // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      setError('Image size must be less than 5MB');
+      setError("Image size must be less than 5MB");
       return;
     }
 
@@ -76,36 +67,32 @@ const Bio = () => {
     const reader = new FileReader();
 
     reader.onload = () => {
-      setImage(reader.result as string);
+      setImage(reader.result);
       setShowCropper(true);
-      // Reset crop values
       setCrop({ x: 0, y: 0 });
       setZoom(1);
       setCroppedAreaPixels(null);
     };
 
     reader.onerror = () => {
-      setError('Failed to read the image file');
+      setError("Failed to read the image file");
     };
 
     reader.readAsDataURL(file);
   }, []);
 
-  //Close Crop Menu
   const handleCropperClose = useCallback(() => {
     setShowCropper(false);
     setImage(null);
     setCroppedAreaPixels(null);
-    // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   }, []);
 
-  //Extract cropped image from Frontend
   const getCroppedImage = useCallback(async () => {
     if (!image || !croppedAreaPixels) {
-      setError('Invalid image or crop area');
+      setError("Invalid image or crop area");
       return;
     }
 
@@ -116,37 +103,33 @@ const Bio = () => {
       const croppedImage = await cropImage(image, croppedAreaPixels);
       await uploadImage(croppedImage);
 
-      // Reload the page after successful upload
       window.location.reload();
 
       setShowCropper(false);
       setImage(null);
 
-      // Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     } catch (err) {
-      console.error('Error processing image:', err);
-      setError('Failed to process the image. Please try again.');
+      console.error("Error processing image:", err);
+      setError("Failed to process the image. Please try again.");
     } finally {
       setIsUploading(false);
     }
   }, [image, croppedAreaPixels]);
 
-
-  //Upload Image Of the User
-  const uploadImage = async (file: Blob): Promise<void> => {
+  const uploadImage = async (file) => {
     if (!user?.username) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
     const formData = new FormData();
     formData.append("profilePic", file, "profile.jpg");
     formData.append("username", user.username);
 
-    console.log('Uploading with username:', user.username);
-    console.log('File size:', file.size);
+    console.log("Uploading with username:", user.username);
+    console.log("File size:", file.size);
 
     const res = await fetch("http://localhost:3001/api/image/upload", {
       method: "POST",
@@ -155,7 +138,7 @@ const Bio = () => {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('Upload error response:', errorText);
+      console.error("Upload error response:", errorText);
 
       let errorData;
       try {
@@ -168,24 +151,26 @@ const Bio = () => {
     }
 
     const data = await res.json();
-    console.log('Upload success:', data);
+    console.log("Upload success:", data);
     setImg(data.imageUrl);
   };
 
-  //Fetch Exising Image of The User
-  const getImage = async (): Promise<void> => {
+  const getImage = async () => {
     if (!user?.username) return;
 
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/get/profile-pic`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username: user.username }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/get/profile-pic`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username: user.username }),
+        }
+      );
 
       if (!res.ok) {
         throw new Error(`Failed to fetch profile picture: ${res.statusText}`);
@@ -194,19 +179,19 @@ const Bio = () => {
       const data = await res.json();
       if (data.avatar) {
         setImg(data.avatar);
-      }
-      else {
-        setImage("https://res.cloudinary.com/dc1fkirb4/image/upload/v1756140468/cropped_circle_image_dhaq8x.png")
+      } else {
+        setImage(
+          "https://res.cloudinary.com/dc1fkirb4/image/upload/v1756140468/cropped_circle_image_dhaq8x.png"
+        );
       }
     } catch (err) {
       console.error("Failed to fetch profile picture:", err);
-      setError('Failed to load profile picture');
+      setError("Failed to load profile picture");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Show loading state while authenticating
   if (!user) {
     return (
       <div className="bg-black/90 min-h-screen flex items-center justify-center">
@@ -219,12 +204,16 @@ const Bio = () => {
     <div className="bg-black/90 min-h-screen">
       <div className="container mx-auto px-4 py-4">
         <div className="flex gap-20">
-          <Link href={"/"}><div className="text-amber-50 bg-white/10 backdrop-blur-3xl p-3 rounded-lg m-3 hover:bg-white/20">
-            <span className="mr-1"> &larr; Home</span></div></Link>
+          <Link href={"/"}>
+            <div className="text-amber-50 bg-white/10 backdrop-blur-3xl p-3 rounded-lg m-3 hover:bg-white/20">
+              <span className="mr-1"> &larr; Home</span>
+            </div>
+          </Link>
           <h1 className="text-amber-50 text-2xl font-semibold mb-6 whitespace-break-spaces">
-            Hi  {user.username}
+            Hi {user.username}
           </h1>
         </div>
+
         {error && (
           <div className="bg-red-500/20 border border-red-500 text-red-100 px-4 py-2 rounded mb-4">
             {error}
@@ -251,7 +240,6 @@ const Bio = () => {
                   </div>
                 )}
 
-                {/* Edit Icon */}
                 <label className="absolute -bottom-2 -right-2 cursor-pointer bg-amber-500 rounded-full p-2 hover:bg-amber-600 transition-colors shadow-lg">
                   <input
                     ref={fileInputRef}
@@ -278,7 +266,6 @@ const Bio = () => {
           </div>
         </div>
 
-        {/* Cropper Modal */}
         {showCropper && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
             <div className="relative w-full max-w-md h-96 bg-gray-900 rounded-xl shadow-2xl">
@@ -294,7 +281,7 @@ const Bio = () => {
 
               <div className="w-full h-full rounded-xl overflow-hidden">
                 <Cropper
-                  image={image!}
+                  image={image}
                   crop={crop}
                   zoom={zoom}
                   aspect={1}
@@ -306,7 +293,6 @@ const Bio = () => {
                 />
               </div>
 
-              {/* Control Panel */}
               <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-gray-800/90 rounded-lg px-4 py-2">
                 <div className="flex items-center space-x-2">
                   <span className="text-white text-sm">Zoom:</span>
@@ -346,7 +332,7 @@ const Bio = () => {
 export default Bio;
 
 // Helper functions
-function createImage(url: string): Promise<HTMLImageElement> {
+function createImage(url) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.addEventListener("load", () => resolve(image));
@@ -356,22 +342,19 @@ function createImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-//Create crop Image
-async function cropImage(imageSrc: string, crop: CropArea): Promise<Blob> {
+async function cropImage(imageSrc, crop) {
   const image = await createImage(imageSrc);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  if (!ctx) {
-    throw new Error("Unable to get canvas context");
-  }
+  if (!ctx) throw new Error("Unable to get canvas context");
 
   const pixelRatio = window.devicePixelRatio || 1;
   canvas.width = crop.width * pixelRatio;
   canvas.height = crop.height * pixelRatio;
 
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = "high";
 
   ctx.drawImage(
     image,
@@ -388,14 +371,11 @@ async function cropImage(imageSrc: string, crop: CropArea): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error("Failed to create blob from canvas"));
-        }
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create blob from canvas"));
       },
       "image/jpeg",
-      0.9 // Quality setting
+      0.9
     );
   });
 }

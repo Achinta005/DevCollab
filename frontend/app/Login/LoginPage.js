@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { setAuthToken } from "../lib/auth";
 import React from "react";
 // import OAuth from "./oAuth";
@@ -9,7 +9,6 @@ import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "../lib/util";
-import { useSearchParams } from "next/navigation";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -29,8 +28,6 @@ const LoginPage = () => {
   };
 
   const handleSubmit = async (e) => {
-    {
-    }
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -48,13 +45,8 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Assuming setToken saves the token to localStorage
-        // e.g., localStorage.setItem('token', token);
-        if (typeof setToken === "function") {
-          setAuthToken(data.token);
-        } else {
-          localStorage.setItem("token", data.token);
-        }
+        // Save token to localStorage
+        setAuthToken(data.token);
         router.push("/");
         router.refresh();
       } else {
@@ -70,6 +62,7 @@ const LoginPage = () => {
 
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Link
@@ -95,12 +88,10 @@ const LoginPage = () => {
               {decodeURIComponent(message)}
             </div>
           )}
+
           <div className="space-y-4">
             <LabelInputContainer>
-              <Label
-                htmlFor="username"
-                className="block text-sm font-medium mb-1"
-              >
+              <Label htmlFor="username" className="block text-sm font-medium mb-1">
                 Username
               </Label>
               <Input
@@ -113,6 +104,7 @@ const LoginPage = () => {
                 onChange={handleChange}
               />
             </LabelInputContainer>
+
             <LabelInputContainer>
               <Label htmlFor="email" className="block text-sm font-medium mb-1">
                 Email
@@ -129,10 +121,7 @@ const LoginPage = () => {
             </LabelInputContainer>
 
             <LabelInputContainer>
-              <Label
-                htmlFor="password"
-                className="block text-sm font-medium mb-1"
-              >
+              <Label htmlFor="password" className="block text-sm font-medium mb-1">
                 Password
               </Label>
               <Input
@@ -162,9 +151,7 @@ const LoginPage = () => {
             <BottomGradient />
           </button>
         </form>
-        {/* <Suspense fallback={<div>Loading dashboard...</div>}>
-          <OAuth />
-        </Suspense> */}
+
         <div className="text-center">
           <button
             onClick={() => router.push("/ResetPassword")}
@@ -176,30 +163,25 @@ const LoginPage = () => {
             onClick={() => router.push("/Register")}
             className="text-blue-600 dark:text-blue-700 hover:text-blue-800 text-sm font-medium cursor-pointer"
           >
-            Don&apos;t have an account? Register now
+            Dont have an account? Register now
           </button>
         </div>
-        {/* ----------------------- */}
       </div>
     </div>
   );
 };
 
-const BottomGradient = () => {
-  return (
-    <>
-      <span className="absolute inset-x-0 -bottom-px block h-px w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-0 transition duration-500 group-hover/btn:opacity-100" />
-      <span className="absolute inset-x-10 -bottom-px mx-auto block h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 blur-sm transition duration-500 group-hover/btn:opacity-100" />
-    </>
-  );
-};
+const BottomGradient = () => (
+  <>
+    <span className="absolute inset-x-0 -bottom-px block h-px w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-0 transition duration-500 group-hover/btn:opacity-100" />
+    <span className="absolute inset-x-10 -bottom-px mx-auto block h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 blur-sm transition duration-500 group-hover/btn:opacity-100" />
+  </>
+);
 
-const LabelInputContainer = ({ children, className }) => {
-  return (
-    <div className={cn("flex w-full flex-col space-y-2", className)}>
-      {children}
-    </div>
-  );
-};
+const LabelInputContainer = ({ children, className }) => (
+  <div className={cn("flex w-full flex-col space-y-2", className)}>
+    {children}
+  </div>
+);
 
 export default LoginPage;

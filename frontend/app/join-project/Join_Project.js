@@ -1,24 +1,22 @@
-"use client"
-import React from 'react'
-import { useState, useEffect } from 'react';
-import { cn } from '../lib/util';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { getAuthToken } from '../lib/auth';
-import { SquarePlus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { cn } from "../lib/util";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { getAuthToken } from "../lib/auth";
+import { SquarePlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const Join_Project = () => {
-  const router=useRouter();
-  const [formData, setFormData] = useState({
-    inviteCode: ''
-  });
+  const router = useRouter();
+  const [formData, setFormData] = useState({ inviteCode: "" });
   const [success, setSuccess] = useState("");
-  const [error, setError] = useState(""); // Added error state
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-const [project, setProject] = useState<Record<string, unknown>>({});
-  const [token, setToken] = useState<string | null>(null);
-  const [joinMsg, setjoinMsg] = useState<string | null>(null);
+  const [project, setProject] = useState({});
+  const [token, setToken] = useState(null);
+  const [joinMsg, setjoinMsg] = useState(null);
 
   useEffect(() => {
     const storedToken = getAuthToken();
@@ -29,52 +27,47 @@ const [project, setProject] = useState<Record<string, unknown>>({});
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
-  setSuccess("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
 
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/projects/link_projects`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          inviteCode: formData.inviteCode,
-        }),
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/projects/link_projects`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ inviteCode: formData.inviteCode }),
+        }
+      );
+
+      const data = await response.json();
+      console.log(data.data);
+      setProject(data.data);
+
+      if (response.ok && data.success) {
+        setSuccess(`Project Found: ${data.data.name} by ${data.data.owner.username}`);
+      } else {
+        setError(data.message || "Unable to fetch project");
       }
-    );
-
-    const data = await response.json();
-    console.log(data.data);
-    setProject(data.data);
-
-    if (response.ok && data.success) {
-      setSuccess(`Project Found: ${data.data.name} by ${data.data.owner.username}`);
-    } else {
-      setError(data.message || "Unable to fetch project");
+    } catch (_err) {
+      setError("Server error. Please try again later.");
+    } finally {
+      setLoading(false);
     }
-  } catch (_err) {
-    setError("Server error. Please try again later.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
   };
 
-  const handleProjSubmit = (inviteCode: string) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleProjSubmit = (inviteCode) => {
     const joinProj = async () => {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/join`, {
@@ -88,12 +81,10 @@ const [project, setProject] = useState<Record<string, unknown>>({});
 
         const data = await response.json();
         console.log(data);
-        setjoinMsg(data.message)
+        setjoinMsg(data.message);
 
         if (response.ok && data.success) {
-
-        } else {
-          // Handle error
+          // optionally handle success
         }
       } catch (err) {
         console.error("Error joining project:", err);
@@ -102,36 +93,42 @@ const [project, setProject] = useState<Record<string, unknown>>({});
     joinProj();
   };
 
-
   return (
-    <div className='relative min-h-screen'>
+    <div className="relative min-h-screen">
       <div
         className="absolute inset-0 bg-cover bg-center filter blur-sm w-full"
         style={{
           backgroundImage:
-            "url('https://res.cloudinary.com/dc1fkirb4/image/upload/v1756225892/blue-futuristic-networking-technology_53876-97395_qfkikg.avif')"
+            "url('https://res.cloudinary.com/dc1fkirb4/image/upload/v1756225892/blue-futuristic-networking-technology_53876-97395_qfkikg.avif')",
         }}
       ></div>
-      <div className='relative z-10'>
-        <div className='bg-white/10 backdrop-blur-3xl rounded-lg p-2 text-amber-50 w-fit relative top-5 left-5 active:scale-75 transition-transform duration-300 ease-in-out cursor-pointer' onClick={()=>router.push('/')}>
+      <div className="relative z-10">
+        <div
+          className="bg-white/10 backdrop-blur-3xl rounded-lg p-2 text-amber-50 w-fit relative top-5 left-5 active:scale-75 transition-transform duration-300 ease-in-out cursor-pointer"
+          onClick={() => router.push("/")}
+        >
           &larr;HOME
         </div>
+
         <form className="py-10 px-96" onSubmit={handleSubmit}>
           <div className="mb-2 flex flex-row space-y-0 space-x-2">
             <LabelInputContainer>
-              <Label htmlFor="name" className='text-green-500 text-center text-lg'>Project Link</Label>
+              <Label htmlFor="name" className="text-green-500 text-center text-lg">
+                Project Link
+              </Label>
               <Input
                 id="inviteCode"
                 name="inviteCode"
                 type="text"
                 value={formData.inviteCode}
                 onChange={handleChange}
-                placeholder='Enter Project Invite Link'
+                placeholder="Enter Project Invite Link"
                 required
                 maxLength={10}
               />
             </LabelInputContainer>
           </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">
               {error}
@@ -142,6 +139,7 @@ const [project, setProject] = useState<Record<string, unknown>>({});
               {success}
             </div>
           )}
+
           <button
             className="group/btn relative block h-10 w-full rounded-md bg-gradient-to-br from-black to-neutral-600 font-medium text-white shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:bg-zinc-800 dark:from-zinc-900 dark:to-zinc-900 dark:shadow-[0px_1px_0px_0px_#27272a_inset,0px_-1px_0px_0px_#27272a_inset] mb-3"
             type="submit"
@@ -177,6 +175,7 @@ const [project, setProject] = useState<Record<string, unknown>>({});
             <BottomGradient />
           </button>
         </form>
+
         <div className="items-center flex justify-center">
           <div className="bg-white/10 backdrop-blur-3xl w-[50vw] h-[55vh] relative mt-10 rounded-2xl p-6 text-lg text-green-500 shadow-lg border border-white/20 mb-10">
             {project ? (
@@ -184,10 +183,7 @@ const [project, setProject] = useState<Record<string, unknown>>({});
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-300 bg-clip-text text-transparent drop-shadow-md">
                   {project.name}
                 </h1>
-
-                <p className="text-lg text-gray-200 max-w-md leading-relaxed">
-                  {project.description}
-                </p>
+                <p className="text-lg text-gray-200 max-w-md leading-relaxed">{project.description}</p>
 
                 <div className="flex flex-col items-center space-y-2">
                   <span className="text-xl text-gray-300">
@@ -196,12 +192,6 @@ const [project, setProject] = useState<Record<string, unknown>>({});
                       {project.owner?.username || "Unknown"}
                     </span>
                   </span>
-
-                  {project.owner?.profile?.avatar && (
-                    <p className="text-gray-400 mt-2">
-                      Avatar URL: {project.owner.profile.avatar}
-                    </p>
-                  )}
 
                   {project.owner?.avatar && (
                     <img
@@ -222,10 +212,7 @@ const [project, setProject] = useState<Record<string, unknown>>({});
                     </div>
                   )}
 
-                  {/* Show joinMsg if it has value */}
-                  {joinMsg && (
-                    <p className="mt-3 text-green-400 font-semibold">{joinMsg}</p>
-                  )}
+                  {joinMsg && <p className="mt-3 text-green-400 font-semibold">{joinMsg}</p>}
                 </div>
               </div>
             ) : (
@@ -233,15 +220,12 @@ const [project, setProject] = useState<Record<string, unknown>>({});
             )}
           </div>
         </div>
-
-
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Join_Project
-
+export default Join_Project;
 
 const BottomGradient = () => {
   return (
@@ -251,16 +235,7 @@ const BottomGradient = () => {
     </>
   );
 };
-const LabelInputContainer = ({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => {
-  return (
-    <div className={cn("flex w-full flex-col space-y-2", className)}>
-      {children}
-    </div>
-  );
+
+const LabelInputContainer = ({ children, className }) => {
+  return <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>;
 };
