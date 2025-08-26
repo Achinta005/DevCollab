@@ -28,26 +28,29 @@ const ResetPassword = () => {
     });
 
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+   const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const { name, value } = e.target;
 
-        if (name === 'username') {
-            setFormData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        } else if (name === 'otp') {
-            setOtpData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        } else if (name === 'password' || name === 'confirmPassword') {
-            setNewPasswordData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        }
-    };
+  if (name === "username") {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  } else if (name === "otp") {
+    setOtpData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  } else if (name === "password" || name === "confirmPassword") {
+    setNewPasswordData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  }
+};
+
 
     // Handle username submission and email lookup
     const handleUsernameSubmit = async (e) => {
