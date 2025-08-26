@@ -53,7 +53,7 @@ const ResetPassword = () => {
 
 
     // Handle username submission and email lookup
-    const handleUsernameSubmit = async (e) => {
+    const handleUsernameSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -79,7 +79,7 @@ const ResetPassword = () => {
     };
 
     // Handle OTP sending
-    const handleSendOTP = async (e) => {
+    const handleSendOTP = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -110,7 +110,7 @@ const ResetPassword = () => {
     };
 
     // Handle OTP verification
-    const handleOTPSubmit = async (e) => {
+    const handleOTPSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
@@ -141,7 +141,7 @@ const ResetPassword = () => {
     };
 
     // Handle new password submission
-    const handlePasswordSubmit = async (e) => {
+    const handlePasswordSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
         setLoading(true);
         setError("");
