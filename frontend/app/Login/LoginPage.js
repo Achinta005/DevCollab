@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAuthToken } from "../lib/auth";
 import React from "react";
-// import OAuth from "./oAuth";
 import Link from "next/link";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
@@ -18,6 +17,11 @@ const LoginPage = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Correctly call the hook at the top level
+  const searchParams = useSearchParams();
+  const message = searchParams ? searchParams.get("message") : "";
+
   const router = useRouter();
 
   const handleChange = (e) => {
@@ -45,7 +49,6 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Save token to localStorage
         setAuthToken(data.token);
         router.push("/");
         router.refresh();
@@ -60,27 +63,23 @@ const LoginPage = () => {
     }
   };
 
-  const searchParams = useSearchParams();
-  const message = searchParams.get("message");
-
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center relative">
       <Link
         href="/"
         className="mb-4 px-4 py-2 bg-white/20 text-white rounded hover:bg-white/30 absolute top-2 left-2"
       >
         HOME
       </Link>
+
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-100 mb-1">
-            Welcome Back
-          </h2>
+          <h2 className="text-3xl font-bold text-gray-100 mb-1">Welcome Back</h2>
           <p className="text-gray-200 font-bold pb-3">Sign in to Start</p>
         </div>
 
         <form
-          className="mt-8 space-y-6 bg-white/10 backdrop-blur-3xl p-6 px-5 rounded-lg "
+          className="mt-8 space-y-6 bg-white/10 backdrop-blur-3xl p-6 px-5 rounded-lg"
           onSubmit={handleSubmit}
         >
           {message && (
@@ -179,9 +178,7 @@ const BottomGradient = () => (
 );
 
 const LabelInputContainer = ({ children, className }) => (
-  <div className={cn("flex w-full flex-col space-y-2", className)}>
-    {children}
-  </div>
+  <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
 );
 
 export default LoginPage;
