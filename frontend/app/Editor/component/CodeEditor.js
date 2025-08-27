@@ -8,8 +8,8 @@ const CodeEditor = ({ projectData }) => {
     <div className="p-4 m-4 border rounded-lg shadow-md bg-black/10 text-amber-50">
       <h2 className="text-xl font-bold mb-3">Code Editor</h2>
       <div className="bg-gray-900 rounded-lg p-4">
-        <p className="text-green-400 mb-2">// Project ID: {projectData?.id}</p>
-        <p className="text-gray-400 mb-4">// Project: {projectData?.name}</p>
+        <p className="text-green-400 mb-2">Project ID: {projectData?.id}</p>
+        <p className="text-gray-400 mb-4">Project: {projectData?.name}</p>
         
         <textarea 
           value={code}

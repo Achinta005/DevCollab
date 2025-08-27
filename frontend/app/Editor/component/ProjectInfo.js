@@ -23,6 +23,11 @@ const ProjectInfo = ({ projectData }) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    // Set current user ID (you might get this from context or props)
+    setCurrentUserId(projectData.owner?.id || projectData.ownerId);
+  }, []);
+
   if (!projectData) return null;
 
   const collaborators = JSON.parse(
@@ -32,11 +37,6 @@ const ProjectInfo = ({ projectData }) => {
   const settings = JSON.parse(
     sessionStorage.getItem("ProjectSettings") || "{}"
   );
-
-  useEffect(() => {
-    // Set current user ID (you might get this from context or props)
-    setCurrentUserId(projectData.owner?.id || projectData.ownerId);
-  }, []);
 
   const getRoleIcon = (role) => {
     const icons = {
@@ -511,10 +511,8 @@ const ProjectInfo = ({ projectData }) => {
               </div>
             </div>
           )}
-          
         </div>
       </div>
-
     </div>
   );
 };
