@@ -186,7 +186,7 @@ const Navbar = () => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      credentials: 'include', // Include if you need cookies/auth
+      credentials: 'include',
     });
 
     console.log('Response status:', res.status);
@@ -199,9 +199,6 @@ const Navbar = () => {
     const data = await res.json();
     console.log('Backend connection successful:', data);
     
-    // Optional: Show success message to user
-    alert('Backend connected successfully!');
-    
   } catch (error) {
     console.error('Failed to connect with Backend:', error);
     console.error('Error details:', {
@@ -209,20 +206,12 @@ const Navbar = () => {
       message: error.message,
       stack: error.stack
     });
-    
-    // Show user-friendly error message
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      console.error('Network error - possible CORS issue or server down');
-      alert('Network error: Unable to reach server. Please check if the server is running.');
-    } else {
-      alert(`Connection failed: ${error.message}`);
-    }
   }
 };
 
   return (
     <div className="flex justify-end gap-6">
-          <div className='relative top-8' onClick={handleBackendConnect}>
+          <div className='relative top-6' onClick={handleBackendConnect}>
       <button className='text-amber-50 cursor-pointer'>
         <Power />
       </button>
