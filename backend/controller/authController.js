@@ -19,6 +19,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
     });
     res.status(201).json({ message: "User registered successfully" });
+    console.log(hashedPassword);
   } catch (error) {
     res.status(400).json({ error: "Error registering user" });
   }
@@ -31,9 +32,7 @@ exports.login = async (req, res) => {
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("Given data",username,email,password);
-    console.log('Database data', user.username,user.email,user.password);
-    if (!isMatch) return res.status(402).json({ error: "Invalid credentials" });
+    if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
 
     const token = jwt.sign(
       {
