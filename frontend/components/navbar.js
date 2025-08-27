@@ -211,7 +211,7 @@ const Navbar = () => {
 
   return (
     <div className="flex justify-end gap-6">
-          <div className='relative top-6' onClick={handleBackendConnect}>
+          <div className='relative top-5' onClick={handleBackendConnect}>
       <button className='text-amber-50 cursor-pointer'>
         <Power />
       </button>
