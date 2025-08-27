@@ -14,7 +14,7 @@ const connectDB=require('./config/db');
 
 app.use(
   cors({
-    origin: ["http://localhost:3000","https://dev-collab-git-main-achinta-hazras-projects.vercel.app"],
+    origin: ["http://localhost:3000","https://dev-collab-git-main-achinta-hazras-projects.vercel.app","https://dev-collab-ten.vercel.app"],
     methods: ["GET", "POST", "OPTIONS","PUT"],
     credentials: true,
   })
