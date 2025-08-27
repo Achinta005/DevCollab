@@ -13,22 +13,13 @@ exports.register = async (req, res) => {
   
   try {
     const hashedPassword = await bcrypt.hash(password, 12);
-    console.log("Original password:", password);
-    console.log("Hashed password before saving:", hashedPassword);
-    console.log("Hash length:", hashedPassword.length);
-    
     const newUser = await User.create({
       username: firstname,
       firstname,
       lastname,
       email,
       password: hashedPassword,
-    });
-    
-    console.log("Password stored in DB:", newUser.password);
-    console.log("Stored password length:", newUser.password.length);
-    console.log("Are they equal?", hashedPassword === newUser.password);
-    
+    });    
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     console.log("Error:", error);
