@@ -29,11 +29,10 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ username });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
-    console.log(error);
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log(user.password);
-    console.log('Password match:', isMatch);
+    console.log("Given data",username,email,password);
+    console.log('Database data', user.username,user.email,user.password);
     if (!isMatch) return res.status(402).json({ error: "Invalid credentials" });
 
     const token = jwt.sign(
