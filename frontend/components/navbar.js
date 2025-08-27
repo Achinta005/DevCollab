@@ -176,24 +176,57 @@ const Navbar = () => {
   const handleNavigation = (path, linkId) => {
     router.push(path);
   };
-  const handleBackendConnect=async()=>{
-    try{
+ const handleBackendConnect = async () => {
+  try {
+    console.log('Attempting to connect to:', `${process.env.NEXT_PUBLIC_API_URL}/connect`);
+    
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include', // Include if you need cookies/auth
+    });
 
-      const res=await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`)
-      const data=await res.json();
+    console.log('Response status:', res.status);
+    console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}, statusText: ${res.statusText}`);
     }
-    catch{
-      console.log("Failed to connect with Backend");
+
+    const data = await res.json();
+    console.log('Backend connection successful:', data);
+    
+    // Optional: Show success message to user
+    alert('Backend connected successfully!');
+    
+  } catch (error) {
+    console.error('Failed to connect with Backend:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Show user-friendly error message
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      console.error('Network error - possible CORS issue or server down');
+      alert('Network error: Unable to reach server. Please check if the server is running.');
+    } else {
+      alert(`Connection failed: ${error.message}`);
     }
   }
+};
 
   return (
     <div className="flex justify-end gap-6">
-          <div className='relative top-8'onClick={handleBackendConnect}>
-            <button className='text-amber-50 cursor-pointer'>
-              <Power />
-            </button>
-          </div>
+          <div className='relative top-8' onClick={handleBackendConnect}>
+      <button className='text-amber-50 cursor-pointer'>
+        <Power />
+      </button>
+    </div>
       {!user ? (
         <div className='flex gap-5 mr-5'>
           <Link href="/Register" className="flex gap-3 bg-white/40 p-2 mt-3 rounded-lg cursor-pointer active:scale-95 transition-transform ease-in-out">
