@@ -131,7 +131,7 @@ const Bio = () => {
     console.log("Uploading with username:", user.username);
     console.log("File size:", file.size);
 
-    const res = await fetch("http://localhost:3001/api/image/upload", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/image/upload`, {
       method: "POST",
       body: formData,
     });
