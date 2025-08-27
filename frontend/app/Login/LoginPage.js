@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAuthToken } from "../lib/auth";
 import React from "react";
@@ -9,7 +9,23 @@ import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { cn } from "../lib/util";
 
-const LoginPage = () => {
+// Separate component for search params logic
+const SearchParamsHandler = () => {
+  const searchParams = useSearchParams();
+  const message = searchParams ? searchParams.get("message") : "";
+  
+  if (message) {
+    return (
+      <div className="mb-4 p-2 text-green-700 bg-green-100 rounded">
+        {decodeURIComponent(message)}
+      </div>
+    );
+  }
+  
+  return null;
+};
+
+const LoginForm = () => {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -17,10 +33,6 @@ const LoginPage = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Correctly call the hook at the top level
-  const searchParams = useSearchParams();
-  const message = searchParams ? searchParams.get("message") : "";
 
   const router = useRouter();
 
@@ -82,11 +94,9 @@ const LoginPage = () => {
           className="mt-8 space-y-6 bg-white/10 backdrop-blur-3xl p-6 px-5 rounded-lg"
           onSubmit={handleSubmit}
         >
-          {message && (
-            <div className="mb-4 p-2 text-green-700 bg-green-100 rounded">
-              {decodeURIComponent(message)}
-            </div>
-          )}
+          <Suspense fallback={<div className="mb-4 p-2 bg-gray-100 rounded animate-pulse h-10"></div>}>
+            <SearchParamsHandler />
+          </Suspense>
 
           <div className="space-y-4">
             <LabelInputContainer>
@@ -180,5 +190,9 @@ const BottomGradient = () => (
 const LabelInputContainer = ({ children, className }) => (
   <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
 );
+
+const LoginPage = () => {
+  return <LoginForm />;
+};
 
 export default LoginPage;
