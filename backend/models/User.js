@@ -1,4 +1,4 @@
-// =================== models/User.js (Enhanced version of your existing schema) ===================
+// =================== models/User.js (Fixed version) ===================
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
@@ -83,10 +83,13 @@ UserSchema.statics.findByUsernameOrEmail = function(identifier) {
     });
 };
 
-// Pre-save hook to hash password if modified
+// FIXED: Pre-save hook to hash password ONLY if it's not already hashed
 UserSchema.pre('save', async function(next) {
     // Only hash the password if it has been modified (or is new)
     if (!this.isModified('password')) return next();
+    
+    // CRITICAL FIX: Skip hashing if password is already hashed
+    if (this.password.startsWith('$2b$')) return next();
     
     try {
         // Hash password with cost of 12
