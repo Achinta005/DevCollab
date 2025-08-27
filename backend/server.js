@@ -28,6 +28,9 @@ app.use(express.json());
 app.get("/",(req,res)=>{
     res.send("Welcome to DevCollab !");
 });
+app.get("/connect",(req,res)=>{
+    console.log("Frontend Is Connected")
+});
 
 
 //Routes

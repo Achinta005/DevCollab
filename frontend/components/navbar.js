@@ -4,6 +4,7 @@ import { LogIn, LogOut, X, User, Settings, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { getUserFromToken } from '../app/lib/auth';
 import { useRouter } from 'next/navigation';
+import { Power } from 'lucide-react';
 
 const ProfileNavigationPopup = ({ isOpen, onClose, position = "bottom", onNavigate, onLogout }) => {
   const detailRef = useRef(null);
@@ -175,9 +176,24 @@ const Navbar = () => {
   const handleNavigation = (path, linkId) => {
     router.push(path);
   };
+  const handleBackendConnect=async()=>{
+    try{
+
+      const res=await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`)
+      const data=await res.json();
+    }
+    catch{
+      console.log("Failed to connect with Backend");
+    }
+  }
 
   return (
     <div className="flex justify-end gap-6">
+          <div className='relative top-8'onClick={handleBackendConnect}>
+            <button className='text-amber-50 cursor-pointer'>
+              <Power />
+            </button>
+          </div>
       {!user ? (
         <div className='flex gap-5 mr-5'>
           <Link href="/Register" className="flex gap-3 bg-white/40 p-2 mt-3 rounded-lg cursor-pointer active:scale-95 transition-transform ease-in-out">
