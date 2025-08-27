@@ -1,12 +1,14 @@
-import React from 'react'
-import UserProfile from './userinfo'
+"use client"; // <-- important for client-side hooks like useSearchParams
 
-const page = () => {
+import React, { Suspense } from "react";
+import UserProfile from "./userinfo";
+
+const Page = () => {
   return (
-    <div>
-        <UserProfile/>
-    </div>
-  )
-}
+    <Suspense fallback={<div className="text-amber-50 p-5">Loading editor...</div>}>
+      <UserProfile />
+    </Suspense>
+  );
+};
 
-export default page
+export default Page;
