@@ -2,6 +2,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { projectService } from "../../services/projectService";
 
 const ViewProject = () => {
   const [projects, setProjects] = useState([]);
@@ -11,19 +12,9 @@ const ViewProject = () => {
 
   const fetchUserProjects = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/my-projects`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const response = projectService.getUserProjects();
+
+      const data = await response;
       
       if (data.success) {
         console.log("User projects:", data.data);
@@ -56,24 +47,8 @@ const ViewProject = () => {
   }, []);
 
 const enterProject = (project) => {
-  // Store complex data structures in sessionStorage
-  sessionStorage.setItem('projectCollaborators', JSON.stringify(project.collaborators));
-  sessionStorage.setItem('projectFiles', JSON.stringify(project.files));
-  sessionStorage.setItem('ProjectSettings', JSON.stringify(project.settings));
-
-  
-  // Pass simple values via URL
   const params = new URLSearchParams({
     projectId: project._id,
-    name: project.name,
-    description: project.description,
-    inviteCode: project.inviteCode,
-    ownerName: project.owner.fullName,
-    ownerId: project.owner._id,
-    visibility: project.settings.visibility,
-    allowedLanguages: project.settings.allowedLanguages.join(','),
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
   });
   
   router.push(`/Editor?${params.toString()}`);
@@ -147,7 +122,7 @@ const enterProject = (project) => {
 
                 <button
                   onClick={() => enterProject(project)}
-                  className="w-full mt-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"
+                  className="w-full mb-3 p-1 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"
                 >
                   Enter Project
                 </button>

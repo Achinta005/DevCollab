@@ -57,6 +57,7 @@ exports.joinProject = async (req, res) => {
   try {
     const { inviteCode } = req.body;
     const userId = req.user.id;
+
     const project = await Project.findOne({ inviteCode });
     if (!project) {
       return res.status(404).json({
@@ -64,6 +65,7 @@ exports.joinProject = async (req, res) => {
         message: "Invalid invite code",
       });
     }
+
     // Check if already a collaborator
     const isCollaborator = project.collaborators.some(
       (collab) => collab.user.toString() === userId.toString()
@@ -74,6 +76,7 @@ exports.joinProject = async (req, res) => {
         message: "You are already a collaborator on this project",
       });
     }
+
     // Check max collaborators limit
     if (project.collaborators.length >= project.settings.maxCollaborators) {
       return res.status(400).json({
@@ -81,27 +84,45 @@ exports.joinProject = async (req, res) => {
         message: "Project has reached maximum collaborators limit",
       });
     }
-    // Add user as collaborator
-    project.collaborators.push({
-      user: userId,
-      role: "editor",
-      permissions: ["read", "write"],
-    });
-    await project.save();
-    await project.populate(
-      "collaborators.user",
-      "username firstname lastname profile.avatar"
+
+    // Use updateOne instead of save() to avoid validation issues
+    const result = await Project.updateOne(
+      { _id: project._id },
+      {
+        $push: {
+          collaborators: {
+            user: userId,
+            role: "editor",
+            permissions: ["read", "write"],
+            joinedAt: new Date(),
+          },
+        },
+      }
     );
+
+    if (result.modifiedCount === 0) {
+      throw new Error("Failed to add collaborator");
+    }
+
+    // Get the updated project with populated collaborators
+    const updatedProject = await Project.findById(project._id)
+      .populate(
+        "collaborators.user",
+        "username firstname lastname profile.avatar"
+      )
+      .populate("owner", "username firstname lastname profile.avatar");
+
     res.json({
       success: true,
-      data: project,
+      data: updatedProject,
       message: "Successfully joined project",
     });
   } catch (error) {
+    console.error("Error joining project:", error); // This will show the actual error
     res.status(500).json({
       success: false,
       message: "Error joining project",
-      error: error.message,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -183,7 +204,6 @@ exports.Update_Project = async (req, res) => {
   console.log("Project Update Req Hit");
   const { projectID, projectName, projectDesc, maxCollaborators, visibility } =
     req.body;
-
   if (!projectID) {
     return res.status(400).json({
       success: false,
@@ -213,7 +233,7 @@ exports.Update_Project = async (req, res) => {
       project,
     });
   } catch (error) {
-    console.error(err);
+    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -225,16 +245,281 @@ exports.getProject = async (req, res) => {
   console.log("Sending Project Data...");
   const { projectID } = req.body;
   if (!projectID) {
-    return res.status(400).json({ success: false, message: "ProjectId is required" });
+    return res
+      .status(400)
+      .json({ success: false, message: "ProjectId is required" });
   }
   try {
-    const project = await Project.findById(projectID);
+    const project = await Project.findById(projectID)
+      .populate("owner", "username firstname lastname profile.avatar") // Add this line
+      .populate(
+        "collaborators.user",
+        "username firstname lastname profile.avatar"
+      )
+      .sort({ updatedAt: -1 });
     if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
     }
     return res.json({ success: true, data: project });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+exports.updateCollaboratorRole = async (req, res) => {
+  try {
+    const { projectId, collaboratorId, newRole } = req.body;
+
+    if (!projectId || !collaboratorId || !newRole) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID, collaborator ID, and new role are required",
+      });
+    }
+
+    const permissions = getPermissionsForRole(newRole);
+
+    // Update only the specific collaborator using MongoDB's positional operator
+    const result = await Project.updateOne(
+      {
+        _id: projectId,
+        "collaborators._id": collaboratorId,
+      },
+      {
+        $set: {
+          "collaborators.$.role": newRole,
+          "collaborators.$.permissions": permissions,
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Project or collaborator not found",
+      });
+    }
+
+    if (result.modifiedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No changes made",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Role updated successfully",
+      data: { permissions, role: newRole },
+    });
+  } catch (error) {
+    console.error("Error updating collaborator role:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// Helper function to get permissions based on role
+function getPermissionsForRole(role) {
+  switch (role) {
+    case "viewer":
+      return ["read"];
+    case "commenter":
+      return ["read", "comment"];
+    case "editor":
+      return ["read", "write"];
+    case "owner":
+      return [
+        "read",
+        "write",
+        "delete",
+        "manage_collaborators",
+        "manage_settings",
+      ];
+    default:
+      return ["read"];
+  }
+}
+
+exports.removeCollaborator = async (req, res) => {
+  try {
+    const { projectId, collaboratorId } = req.body;
+
+    console.log("Remove collaborator request:", { projectId, collaboratorId });
+
+    // Validation
+    if (!projectId || !collaboratorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID and collaborator ID are required",
+      });
+    }
+
+    // Method 1: Using updateOne with $pull (Recommended)
+    const result = await Project.updateOne(
+      { _id: projectId },
+      {
+        $pull: {
+          collaborators: { _id: collaboratorId },
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Collaborator not found or already removed",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Collaborator removed successfully",
+    });
+  } catch (error) {
+    console.error("Error removing collaborator:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.addCollaborator = async (req, res) => {
+  try {
+    const { projectId, email, role = "editor" } = req.body;
+    const requesterId = req.user.id;
+
+    console.log("Add collaborator request:", { projectId, email, role });
+
+    // Validation
+    if (!projectId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID and email are required",
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // Find the project
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    // Check if requester has permission to add collaborators
+    const requesterCollab = project.collaborators.find(
+      (collab) => collab.user.toString() === requesterId.toString()
+    );
+
+    if (
+      !requesterCollab ||
+      !requesterCollab.permissions.includes("manage_collaborators")
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to add collaborators",
+      });
+    }
+
+    // Check collaborator limit
+    if (project.collaborators.length >= project.settings.maxCollaborators) {
+      return res.status(400).json({
+        success: false,
+        message: "Project has reached maximum collaborators limit",
+      });
+    }
+
+    // Find user by email
+    const userToAdd = await User.findOne({ email });
+
+    if (!userToAdd) {
+      // User doesn't exist - send invitation email
+      // This is where you'd implement email invitation logic
+      // For now, we'll return a message
+      return res.status(404).json({
+        success: false,
+        message:
+          "User with this email not found. Email invitations not implemented yet.",
+      });
+    }
+
+    // Check if user is already a collaborator
+    const existingCollab = project.collaborators.find(
+      (collab) => collab.user.toString() === userToAdd._id.toString()
+    );
+
+    if (existingCollab) {
+      return res.status(400).json({
+        success: false,
+        message: "User is already a collaborator on this project",
+      });
+    }
+
+    // Add user as collaborator using updateOne
+    const result = await Project.updateOne(
+      { _id: projectId },
+      {
+        $push: {
+          collaborators: {
+            user: userToAdd._id,
+            role: role,
+            permissions: getPermissionsForRole(role),
+            joinedAt: new Date(),
+          },
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new Error("Failed to add collaborator");
+    }
+
+    // Get the newly added collaborator data
+    const updatedProject = await Project.findById(projectId).populate(
+      "collaborators.user",
+      "username firstname lastname fullName profile"
+    );
+
+    const newCollaborator = updatedProject.collaborators.find(
+      (collab) => collab.user._id.toString() === userToAdd._id.toString()
+    );
+
+    return res.json({
+      success: true,
+      message: `${userToAdd.username} has been added to the project`,
+      data: {
+        collaborator: newCollaborator,
+      },
+    });
+  } catch (error) {
+    console.error("Error adding collaborator:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };

@@ -18,14 +18,19 @@ import {
   Pencil,
   GitCommitHorizontal,
 } from "lucide-react";
+import { projectService } from "../../../services";
 
 const ProjectInfo = ({ projectData }) => {
+  //USESTATES
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [success, setSuccess] = useState("");
   const [fetchProject, setFetchProject] = useState({});
+  const [isAddingCollaborator, setIsAddingCollaborator] = useState(false);
+  const [error, setError] = useState("");
+  const [isChanged, setIsChanged] = useState(false);
   const [formData, setFormData] = useState({
     projectID: "",
     projectName: "",
@@ -34,67 +39,63 @@ const ProjectInfo = ({ projectData }) => {
     visibility: "",
   });
   const [initialData, setinitialData] = useState(formData);
-  const [isChanged, setIsChanged] = useState(false);
 
+  //KEEP TRACK WIDTH OF INPUT FIELD
   const [editName, setEditName] = useState(false);
   const [editDesc, setEditDesc] = useState(false);
   const [editmColl, setEditMColl] = useState(false);
   const [editVisibility, setEditVisibility] = useState(false);
-
   const [nameWidth, setNameWidth] = useState(0);
   const [descWidth, setDescWidth] = useState(0);
   const [MCollWidth, setMCollWidth] = useState(0);
-
   const nameSpanRef = useRef(null);
   const descSpanRef = useRef(null);
   const MCollSpanRef = useRef(null);
-
   useEffect(() => {
-    // Set current user ID (you might get this from context or props)
-    setCurrentUserId(projectData.owner?.id || projectData.ownerId);
-  }, []);
+    if (nameSpanRef.current) {
+      setNameWidth(nameSpanRef.current.offsetWidth + 10);
+    }
+  }, [fetchProject.name, editName]);
+  useEffect(() => {
+    if (descSpanRef.current) {
+      setDescWidth(descSpanRef.current.offsetWidth + 10);
+    }
+  }, [fetchProject.projectDesc, editDesc]);
+  useEffect(() => {
+    if (MCollSpanRef.current) {
+      setMCollWidth(MCollSpanRef.current.offsetWidth + 10);
+    }
+  }, [fetchProject.maxCollaborators, editmColl]);
 
+  //FETCH PROJECT METADATA FROM DATABASE USING PROJECT ID
   const fetchProjectMetaData = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/projects/get-project`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ projectID: projectData.id }),
-        }
-      );
-
-      const data = await response.json();
+      const response = projectService.getProject(projectData.id);
+      const data = await response;
       if (data.success) {
         return data.data;
-      } else {
-        throw new Error(data.message || "Failed to fetch project");
       }
-    } catch (error) {
-      console.error("Error fetching Project Data:", error);
-      throw error;
-    }
+    } catch (error) {}
   };
-
   useEffect(() => {
-    const loadProjects = async () => {
+    const loadProject = async () => {
       try {
         const data = await fetchProjectMetaData();
         setFetchProject(data);
-        console.log(fetchProject);
       } catch (err) {
-        setFetchProject([]);
-      } finally {
+        setFetchProject(null);
       }
     };
 
-    loadProjects();
+    loadProject();
   }, []);
 
+  //SETTING COMPLEX DATA INTO SEPARATE OBJECT
+  const collaborators = fetchProject?.collaborators || [];
+  const files = fetchProject?.files || [];
+  const settings = fetchProject?.settings || "{}";
+
+  //HANDLE SETTING THE INITIAL PROJECT METADATA
   useEffect(() => {
     if (fetchProject) {
       const loadData = {
@@ -109,24 +110,7 @@ const ProjectInfo = ({ projectData }) => {
     }
   }, [fetchProject]);
 
-  useEffect(() => {
-    if (nameSpanRef.current) {
-      setNameWidth(nameSpanRef.current.offsetWidth + 10);
-    }
-  }, [fetchProject.name, editName]);
-
-  useEffect(() => {
-    if (descSpanRef.current) {
-      setDescWidth(descSpanRef.current.offsetWidth + 10);
-    }
-  }, [formData.projectDesc, editDesc]);
-
-  useEffect(() => {
-    if (MCollSpanRef.current) {
-      setMCollWidth(MCollSpanRef.current.offsetWidth + 10);
-    }
-  }, [formData.maxCollaborators, editmColl]);
-
+  //HANDLE CHANGES,EDITS IN THE INPUT FIELD OF PROJECT METADATA
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -140,24 +124,15 @@ const ProjectInfo = ({ projectData }) => {
     });
   };
 
+  //HANDLE THE EDITING PROCESS OF PROJECT METADATA
   const handleSubmit = (e) => {
     e.preventDefault();
 
     const updatePrjectData = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/projects/update-project`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            body: JSON.stringify(formData),
-          }
-        );
+        const response = projectService.updateProject(formData);
 
-        const data = await response.json();
+        const data = await response;
         if (!data.success) {
           console.error("Update failed:", data.message);
         } else {
@@ -174,16 +149,7 @@ const ProjectInfo = ({ projectData }) => {
     window.location.reload();
   };
 
-  if (!projectData) return null;
-
-  const collaborators = JSON.parse(
-    sessionStorage.getItem("projectCollaborators") || "[]"
-  );
-  const files = JSON.parse(sessionStorage.getItem("projectFiles") || "[]");
-  const settings = JSON.parse(
-    sessionStorage.getItem("ProjectSettings") || "{}"
-  );
-
+  // APPLY ICON BASED ON ROLE
   const getRoleIcon = (role) => {
     const icons = {
       owner: <Crown className="w-4 h-4" />,
@@ -194,6 +160,7 @@ const ProjectInfo = ({ projectData }) => {
     return icons[role] || icons.viewer;
   };
 
+  //APPLY BORDER,BACKGROUND,TEXT-COLOR BASED ON ROLE
   const getRoleColor = (role) => {
     const colors = {
       owner: "bg-purple-100 text-purple-800 border-purple-300",
@@ -204,16 +171,7 @@ const ProjectInfo = ({ projectData }) => {
     return colors[role] || colors.viewer;
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
+  //APPLY BORDER,BACKGROUND,TEXT-COLOR BASED ON PERMISSION
   const getPermissionBadgeColor = (permission) => {
     const colors = {
       read: "bg-green-50 text-green-700 border-green-200",
@@ -225,31 +183,169 @@ const ProjectInfo = ({ projectData }) => {
     return colors[permission] || "bg-gray-50 text-gray-700 border-gray-200";
   };
 
-  const handleAddCollaborator = () => {
-    if (newCollaboratorEmail.trim()) {
-      // Here you would typically call an API to add the collaborator
-      console.log("Adding collaborator:", newCollaboratorEmail.trim());
-      setNewCollaboratorEmail("");
-      setShowAddForm(false);
-      // You might want to refresh the collaborators list after adding
+  //CONVERT THE DATE-TIME TO UI FRIENDLY
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  //HANDELLING ADDING COLLABORATOR USING EMAIL
+  const handleAddCollaboratorAdvanced = async () => {
+    try {
+      // Validation
+      if (!newCollaboratorEmail.trim()) {
+        setError("Please enter an email address");
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newCollaboratorEmail)) {
+        setError("Please enter a valid email address");
+        return;
+      }
+
+      // Clear previous errors
+      setError("");
+      setIsAddingCollaborator(true);
+
+      const response = projectService.addCollaborator(
+        projectData.id,
+        newCollaboratorEmail.trim(),
+        "editor"
+      );
+
+      const data = await response;
+
+      if (data.success) {
+        if (data.data.collaborator) {
+          // If user already exists and was added immediately
+          setFetchProject((prevProject) => ({
+            ...prevProject,
+            collaborators: [
+              ...prevProject.collaborators,
+              data.data.collaborator,
+            ],
+          }));
+        }
+        // Success handling
+        setNewCollaboratorEmail("");
+        setShowAddForm(false);
+        setSuccess(data.message || "Invitation sent successfully!");
+
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        throw new Error(data.message || "Failed to add collaborator");
+      }
+    } catch (error) {
+      console.error("Error adding collaborator:", error);
+      setError(error.message || "Failed to send invitation");
+    } finally {
+      setIsAddingCollaborator(false);
     }
   };
 
-  const handleRemoveCollaborator = (collaboratorId) => {
-    console.log("Removing collaborator:", collaboratorId);
-    // Handle removal logic here
+  //HANDELLING REMOVING COLLABORATOR
+  const handleRemoveCollaboratorOptimistic = async (collaboratorId) => {
+    // Store original collaborators for rollback
+    const originalCollaborators = fetchProject.collaborators;
+
+    try {
+      const isConfirmed = window.confirm(
+        "Are you sure you want to remove this collaborator?"
+      );
+      if (!isConfirmed) return;
+
+      // Optimistic update - remove from UI immediately
+      setFetchProject((prevProject) => ({
+        ...prevProject,
+        collaborators: prevProject.collaborators.filter(
+          (collab) => collab._id !== collaboratorId
+        ),
+      }));
+
+      const response = projectService.removeCollaborator(
+        projectData.id,
+        collaboratorId
+      );
+      const data = await response;
+
+      console.log("Collaborator removed successfully!");
+    } catch (error) {
+      console.error("Error removing collaborator:", error);
+
+      // Rollback optimistic update
+      setFetchProject((prevProject) => ({
+        ...prevProject,
+        collaborators: originalCollaborators,
+      }));
+
+      alert(error.message || "Failed to remove collaborator");
+    }
   };
 
-  const handleUpdateRole = (collaboratorId, newRole) => {
-    console.log(
-      "Updating role for collaborator:",
-      collaboratorId,
-      "to:",
-      newRole
+  //HANDELLING UPDATING ROLE OF COLLABORATOR
+  const handleUpdateRoleWithOptimisticUpdate = async (
+    collaboratorId,
+    newRole
+  ) => {
+    const originalCollaborator = fetchProject.collaborators.find(
+      (c) => c._id === collaboratorId
     );
-    // Handle role update logic here
+    const originalRole = originalCollaborator?.role;
+
+    try {
+      // Optimistic update - update UI immediately
+      setFetchProject((prevProject) => ({
+        ...prevProject,
+        collaborators: prevProject.collaborators.map((collab) =>
+          collab._id === collaboratorId ? { ...collab, role: newRole } : collab
+        ),
+      }));
+      const response = projectService.updateCollaboratorRole(
+        projectData.id,
+        collaboratorId,
+        newRole
+      );
+      const data = await response;
+      if (!data.success) {
+        throw new Error(data.message || "Failed to update role");
+      }
+      // Update with actual permissions from server
+      if (data.data?.permissions) {
+        setFetchProject((prevProject) => ({
+          ...prevProject,
+          collaborators: prevProject.collaborators.map((collab) =>
+            collab._id === collaboratorId
+              ? { ...collab, permissions: data.data.permissions }
+              : collab
+          ),
+        }));
+      }
+      console.log("Role updated successfully!");
+    } catch (error) {
+      console.error("Error updating collaborator role:", error);
+      // Rollback optimistic update
+      if (originalRole) {
+        setFetchProject((prevProject) => ({
+          ...prevProject,
+          collaborators: prevProject.collaborators.map((collab) =>
+            collab._id === collaboratorId
+              ? { ...collab, role: originalRole }
+              : collab
+          ),
+        }));
+      }
+      alert(error.message || "Failed to update role");
+    }
   };
 
+  //CHEKS THE CURRENT USER CAN MANAGE THE COLLABORATOR ACTIONS OR NOT
   const canManageCollaborators = (userRole) => {
     return (
       userRole === "owner" ||
@@ -260,20 +356,29 @@ const ProjectInfo = ({ projectData }) => {
     );
   };
 
+  //CHECKS THE CURRENT USER ID & USER ROLE
   const currentUserRole = collaborators.find(
     (c) => c.user._id === projectData.currentUserId
   )?.role;
+  useEffect(() => {
+    setCurrentUserId(projectData.currentUserId);
+  }, []);
 
+  //COPY THE PROJECT INVITE CODE IN CLIPBOARD
   const copyInviteCode = async () => {
     try {
-      await navigator.clipboard.writeText(projectData.inviteCode);
+      await navigator.clipboard.writeText(fetchProject.inviteCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500); // Reset after 1.5s
+      setTimeout(() => setCopied(false), 1500);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
   };
 
+  // useEffect(() => {
+  //   console.log( console.log(fetchProject))
+  // }, [fetchProject])
+  
   return (
     <div className="p-6 space-y-6">
       {/* Project Overview */}
@@ -292,7 +397,7 @@ const ProjectInfo = ({ projectData }) => {
                         ref={nameSpanRef}
                         className="absolute top-0 left-0 invisible whitespace-pre text-2xl font-bold"
                       >
-                        {fetchProject.projectName || projectData.name}
+                        {fetchProject.projectName}
                       </span>
 
                       <input
@@ -369,7 +474,7 @@ const ProjectInfo = ({ projectData }) => {
                     <Crown className="w-4 h-4 text-amber-400" />
                     <span className="text-sm">
                       <strong>Owner:</strong>{" "}
-                      {projectData.owner?.name || projectData.ownerName}
+                      {fetchProject.owner?.fullName || fetchProject.ownerName}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -377,7 +482,7 @@ const ProjectInfo = ({ projectData }) => {
                     <span className="text-sm">
                       <strong>Invite Code:</strong>
                       <code className="ml-1 px-2 py-1 bg-amber-900/40 rounded text-amber-200 font-mono">
-                        {projectData.inviteCode}
+                        {fetchProject.inviteCode}
                       </code>
                     </span>
                     <button
@@ -395,7 +500,7 @@ const ProjectInfo = ({ projectData }) => {
                     <Calendar className="w-4 h-4 text-amber-400" />
                     <span className="text-sm">
                       <strong>Created:</strong>{" "}
-                      {formatDate(projectData.createdAt)}
+                      {formatDate(fetchProject.createdAt)}
                     </span>
                   </div>
                 </div>
@@ -611,23 +716,34 @@ const ProjectInfo = ({ projectData }) => {
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
-                      handleAddCollaborator();
+                      handleAddCollaboratorAdvanced();
                     }
                   }}
+                  disabled={isAddingCollaborator}
                 />
                 <button
-                  onClick={handleAddCollaborator}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={handleAddCollaboratorAdvanced}
+                  disabled={isAddingCollaborator}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Invite
+                  {isAddingCollaborator ? "Sending..." : "Send Invite"}
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}
                   className="px-3 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+                  disabled={isAddingCollaborator}
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="mt-3 text-red-600 text-sm">{error}</div>
+              )}
+              {success && (
+                <div className="mt-3 text-green-600 text-sm">{success}</div>
+              )}
             </div>
           )}
 
@@ -720,7 +836,10 @@ const ProjectInfo = ({ projectData }) => {
                         <select
                           value={collaborator.role}
                           onChange={(e) =>
-                            handleUpdateRole(collaborator._id, e.target.value)
+                            handleUpdateRoleWithOptimisticUpdate(
+                              collaborator._id,
+                              e.target.value
+                            )
                           }
                           className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
@@ -732,7 +851,7 @@ const ProjectInfo = ({ projectData }) => {
                         {/* Remove Button */}
                         <button
                           onClick={() =>
-                            handleRemoveCollaborator(collaborator._id)
+                            handleRemoveCollaboratorOptimistic(collaborator._id)
                           }
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Remove collaborator"

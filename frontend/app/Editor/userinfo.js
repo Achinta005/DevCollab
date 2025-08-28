@@ -13,7 +13,6 @@ const UserProfile = () => {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Get user data
     const userData = getUserFromToken();
     if (userData) {
       setUser(userData);
@@ -28,17 +27,6 @@ const UserProfile = () => {
     if (projectId) {
       const project = {
         id: projectId,
-        name: searchParams.get("name"),
-        description: searchParams.get("description"),
-        inviteCode: searchParams.get("inviteCode"),
-        owner: {
-          id: searchParams.get("ownerId"),
-          name: searchParams.get("ownerName"),
-        },
-        collaborators: parseInt(searchParams.get("collaborators")) || 0,
-        files: parseInt(searchParams.get("files")) || 0,
-        visibility: searchParams.get("visibility"),
-        createdAt: searchParams.get("createdAt"),
         currentUserId: userData.id,
       };
 

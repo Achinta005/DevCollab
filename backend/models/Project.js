@@ -26,7 +26,7 @@ const ProjectSchema = new mongoose.Schema({
         joinedAt: { type: Date, default: Date.now }
     }],
     files: [{
-        path: { type: String, required: true },
+        path: { type: String },
         content: { type: String, default: '' },
         language: { type: String, default: 'javascript' },
         lastModified: { type: Date, default: Date.now },
