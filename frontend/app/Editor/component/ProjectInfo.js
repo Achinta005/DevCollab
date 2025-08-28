@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Crown,
@@ -15,6 +15,8 @@ import {
   Globe,
   Lock,
   Copy,
+  Pencil,
+  GitCommitHorizontal,
 } from "lucide-react";
 
 const ProjectInfo = ({ projectData }) => {
@@ -22,11 +24,155 @@ const ProjectInfo = ({ projectData }) => {
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [fetchProject, setFetchProject] = useState({});
+  const [formData, setFormData] = useState({
+    projectID: "",
+    projectName: "",
+    projectDesc: "",
+    maxCollaborators: "",
+    visibility: "",
+  });
+  const [initialData, setinitialData] = useState(formData);
+  const [isChanged, setIsChanged] = useState(false);
+
+  const [editName, setEditName] = useState(false);
+  const [editDesc, setEditDesc] = useState(false);
+  const [editmColl, setEditMColl] = useState(false);
+  const [editVisibility, setEditVisibility] = useState(false);
+
+  const [nameWidth, setNameWidth] = useState(0);
+  const [descWidth, setDescWidth] = useState(0);
+  const [MCollWidth, setMCollWidth] = useState(0);
+
+  const nameSpanRef = useRef(null);
+  const descSpanRef = useRef(null);
+  const MCollSpanRef = useRef(null);
 
   useEffect(() => {
     // Set current user ID (you might get this from context or props)
     setCurrentUserId(projectData.owner?.id || projectData.ownerId);
   }, []);
+
+  const fetchProjectMetaData = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/projects/get-project`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ projectID: projectData.id }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        return data.data;
+      } else {
+        throw new Error(data.message || "Failed to fetch project");
+      }
+    } catch (error) {
+      console.error("Error fetching Project Data:", error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const data = await fetchProjectMetaData();
+        setFetchProject(data);
+        console.log(fetchProject);
+      } catch (err) {
+        setFetchProject([]);
+      } finally {
+      }
+    };
+
+    loadProjects();
+  }, []);
+
+  useEffect(() => {
+    if (fetchProject) {
+      const loadData = {
+        projectID: fetchProject._id || "",
+        projectName: fetchProject.name || "",
+        projectDesc: fetchProject.description || "",
+        maxCollaborators: fetchProject.settings?.maxCollaborators || "",
+        visibility: fetchProject.settings?.visibility || "",
+      };
+      setFormData(loadData);
+      setinitialData(loadData);
+    }
+  }, [fetchProject]);
+
+  useEffect(() => {
+    if (nameSpanRef.current) {
+      setNameWidth(nameSpanRef.current.offsetWidth + 10);
+    }
+  }, [fetchProject.name, editName]);
+
+  useEffect(() => {
+    if (descSpanRef.current) {
+      setDescWidth(descSpanRef.current.offsetWidth + 10);
+    }
+  }, [formData.projectDesc, editDesc]);
+
+  useEffect(() => {
+    if (MCollSpanRef.current) {
+      setMCollWidth(MCollSpanRef.current.offsetWidth + 10);
+    }
+  }, [formData.maxCollaborators, editmColl]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData((prevData) => {
+      const updatedData = { ...prevData, [name]: value };
+      const hasChanged = Object.keys(updatedData).some(
+        (key) => updatedData[key] !== initialData[key]
+      );
+      setIsChanged(hasChanged);
+      return updatedData;
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const updatePrjectData = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/projects/update-project`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify(formData),
+          }
+        );
+
+        const data = await response.json();
+        if (!data.success) {
+          console.error("Update failed:", data.message);
+        } else {
+          console.log("Project updated:", data.projectName);
+          setSuccess("Projaect updated successfully!");
+        }
+      } catch (err) {
+        console.error("API call error:", err);
+      }
+    };
+
+    updatePrjectData();
+    console.log(formData, projectData.id);
+    window.location.reload();
+  };
 
   if (!projectData) return null;
 
@@ -114,8 +260,9 @@ const ProjectInfo = ({ projectData }) => {
     );
   };
 
-  const currentUserRole =
-    collaborators.find((c) => c.user._id === currentUserId)?.role || "owner";
+  const currentUserRole = collaborators.find(
+    (c) => c.user._id === projectData.currentUserId
+  )?.role;
 
   const copyInviteCode = async () => {
     try {
@@ -130,139 +277,294 @@ const ProjectInfo = ({ projectData }) => {
   return (
     <div className="p-6 space-y-6">
       {/* Project Overview */}
-      <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg">
-        <div className="p-6 text-amber-50">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-amber-600/20 rounded-lg border border-amber-500/30">
-              <Code className="w-8 h-8 text-amber-300" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-amber-100">
-                {projectData.name}
-              </h1>
-              <p className="text-amber-200/80">{projectData.description}</p>
-            </div>
-          </div>
+      <form onSubmit={handleSubmit}>
+        <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg">
+          <div className="p-6 text-amber-50">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-amber-600/20 rounded-lg border border-amber-500/30">
+                <Code className="w-8 h-8 text-amber-300" />
+              </div>
+              <div>
+                <div className="flex gap-3 items-center">
+                  {editName ? (
+                    <div className="relative">
+                      <span
+                        ref={nameSpanRef}
+                        className="absolute top-0 left-0 invisible whitespace-pre text-2xl font-bold"
+                      >
+                        {fetchProject.projectName || projectData.name}
+                      </span>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Basic Info */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
-                Project Details
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Owner:</strong>{" "}
-                    {projectData.owner?.name || projectData.ownerName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Invite Code:</strong>
-                    <code className="ml-1 px-2 py-1 bg-amber-900/40 rounded text-amber-200 font-mono">
-                      {projectData.inviteCode}
-                    </code>
-                  </span>
-                  <button
-                    onClick={copyInviteCode}
-                    className="p-1 rounded hover:bg-amber-700/30 transition"
-                    title="Copy invite code"
-                  >
-                    <Copy className="w-4 h-4 text-amber-300" />
-                  </button>
-                  {copied && (
-                    <span className="text-xs text-emerald-400">Copied!</span>
+                      <input
+                        type="text"
+                        name="projectName"
+                        value={formData.projectName}
+                        onChange={handleChange}
+                        style={{ width: `${nameWidth}px` }}
+                        className="bg-transparent border-b-2 border-amber-400 text-2xl font-bold text-amber-100 focus:outline-none focus:border-amber-200"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <h1
+                      className="text-2xl font-bold text-amber-100 cursor-pointer"
+                      onClick={() => setEditName(true)}
+                    >
+                      {fetchProject.name}
+                    </h1>
+                  )}
+
+                  {currentUserRole === "owner" && (
+                    <Pencil
+                      className="cursor-pointer"
+                      onClick={() => setEditName((prev) => !prev)}
+                      size={12}
+                    />
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Created:</strong>{" "}
-                    {formatDate(projectData.createdAt)}
-                  </span>
+                <div className="flex items-center gap-3">
+                  {editDesc ? (
+                    <div className="relative">
+                      <span
+                        ref={descSpanRef}
+                        className="absolute top-0 left-0 invisible whitespace-pre text-amber-200/80"
+                      >
+                        {formData.projectDesc}
+                      </span>
+
+                      <input
+                        type="text"
+                        name="projectDesc"
+                        value={formData.projectDesc}
+                        onChange={handleChange}
+                        style={{ width: `${descWidth}px` }}
+                        className="bg-transparent border-b border-amber-400 text-amber-200/80 focus:outline-none focus:border-amber-200"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-amber-200/80 cursor-pointer">
+                      {fetchProject.description}
+                    </p>
+                  )}
+                  {currentUserRole === "owner" && (
+                    <Pencil
+                      className="cursor-pointer"
+                      onClick={() => setEditDesc((prev) => !prev)}
+                      size={12}
+                    />
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
-                Settings
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Max Collaborators:</strong>{" "}
-                    {settings.maxCollaborators || "Unlimited"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {settings.visibility === "public" ? (
-                    <Globe className="w-4 h-4 text-amber-400" />
-                  ) : (
-                    <Lock className="w-4 h-4 text-amber-400" />
-                  )}
-                  <span className="text-sm">
-                    <strong>Visibility:</strong>
-                    <span
-                      className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        settings.visibility === "public"
-                          ? "bg-green-600/20 text-green-300 border border-green-500/30"
-                          : "bg-red-600/20 text-red-300 border border-red-500/30"
-                      }`}
-                    >
-                      {settings.visibility || "private"}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Basic Info */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
+                  Project Details
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm">
+                      <strong>Owner:</strong>{" "}
+                      {projectData.owner?.name || projectData.ownerName}
                     </span>
-                  </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm">
+                      <strong>Invite Code:</strong>
+                      <code className="ml-1 px-2 py-1 bg-amber-900/40 rounded text-amber-200 font-mono">
+                        {projectData.inviteCode}
+                      </code>
+                    </span>
+                    <button
+                      onClick={copyInviteCode}
+                      className="p-1 rounded hover:bg-amber-700/30 transition"
+                      title="Copy invite code"
+                    >
+                      <Copy className="w-4 h-4 text-amber-300" />
+                    </button>
+                    {copied && (
+                      <span className="text-xs text-emerald-400">Copied!</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm">
+                      <strong>Created:</strong>{" "}
+                      {formatDate(projectData.createdAt)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <Code className="w-4 h-4 text-amber-400 mt-0.5" />
-                  <div className="text-sm">
-                    <strong>Languages:</strong>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(settings.allowedLanguages || ["javascript"]).map(
-                        (lang, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-0.5 bg-amber-800/40 text-amber-200 rounded text-xs border border-amber-600/30"
+              </div>
+
+              {/* Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
+                  Settings
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    {editmColl ? (
+                      <div className="relative">
+                        {/* Hidden span for width calculation */}
+                        <span
+                          ref={MCollSpanRef}
+                          className="absolute top-0 left-0 invisible whitespace-pre text-2xl font-bold"
+                        >
+                          {fetchProject.maxCollaborators}
+                        </span>
+
+                        <input
+                          type="number"
+                          name="maxCollaborators"
+                          value={formData.maxCollaborators}
+                          onChange={handleChange}
+                          style={{ width: `${MCollWidth}px` }}
+                          className="bg-transparent border-b-2 border-amber-400 text-2xl font-bold text-amber-100 focus:outline-none focus:border-amber-200 
+             [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none 
+             [appearance:textfield]"
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4 text-amber-400" />
+                        <strong>Max Collaborators:</strong>{" "}
+                        <span className="text-sm">
+                          {fetchProject.settings?.maxCollaborators}
+                        </span>
+                      </>
+                    )}
+
+                    {currentUserRole === "owner" && (
+                      <Pencil
+                        className="cursor-pointer"
+                        onClick={() => setEditMColl((prev) => !prev)}
+                        size={12}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {editVisibility ? (
+                      <div className="relative">
+                        <select
+                          name="visibility"
+                          value={fetchProject.settings?.visibility}
+                          onChange={handleChange}
+                          className="appearance-none bg-amber-900/40 border border-amber-400 text-amber-100 text-sm font-medium rounded-lg px-3 py-1 pr-8 focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
+                          autoFocus
+                          onBlur={() => setEditVisibility(false)}
+                        >
+                          <option
+                            value="public"
+                            className="bg-amber-800 text-green-300"
                           >
-                            {lang}
+                            Public
+                          </option>
+                          <option
+                            value="private"
+                            className="bg-amber-800 text-red-300"
+                          >
+                            Private
+                          </option>
+                        </select>
+
+                        {/* custom arrow icon */}
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-amber-300">
+                          ▼
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {settings.visibility === "public" ? (
+                          <Globe className="w-4 h-4 text-amber-400" />
+                        ) : (
+                          <Lock className="w-4 h-4 text-amber-400" />
+                        )}
+                        <span className="text-sm">
+                          <strong>Visibility:</strong>
+                          <span
+                            className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                              settings.visibility === "public"
+                                ? "bg-green-600/20 text-green-300 border border-green-500/30"
+                                : "bg-red-600/20 text-red-300 border border-red-500/30"
+                            }`}
+                          >
+                            {settings.visibility || "private"}
                           </span>
-                        )
-                      )}
+                        </span>
+                      </>
+                    )}
+                    {currentUserRole === "owner" && (
+                      <Pencil
+                        className="cursor-pointer"
+                        onClick={() => setEditVisibility((prev) => !prev)}
+                        size={12}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Code className="w-4 h-4 text-amber-400 mt-0.5" />
+                    <div className="text-sm">
+                      <strong>Languages:</strong>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(settings.allowedLanguages || ["javascript"]).map(
+                          (lang, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-0.5 bg-amber-800/40 text-amber-200 rounded text-xs border border-amber-600/30"
+                            >
+                              {lang}
+                            </span>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Stats */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
-                Statistics
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Collaborators:</strong> {collaborators.length}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm">
-                    <strong>Files:</strong> {files.length}
-                  </span>
+              {/* Stats */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-amber-200 border-b border-amber-700/50 pb-2">
+                  Statistics
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm">
+                      <strong>Collaborators:</strong> {collaborators.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm">
+                      <strong>Files:</strong> {files.length}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+          {isChanged ? (
+            <button
+              type="submit"
+              className="absolute top-4 right-6 text-amber-400 bg-amber-800/40 border-amber-600/30 p-2 rounded-lg cursor-pointer active:scale-75 transition-transform duration-200 ease-in"
+            >
+              <div className="flex gap-1">
+                <GitCommitHorizontal />
+                UPDATE CHANGES
+              </div>
+            </button>
+          ) : (
+            <></>
+          )}
         </div>
-      </div>
+      </form>
 
       {/* Collaborators Section */}
       <div className="bg-white/95 backdrop-blur-sm rounded-lg border border-gray-200 shadow-lg">

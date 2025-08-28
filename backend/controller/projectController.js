@@ -178,3 +178,63 @@ exports.getUserLinkProjects = async (req, res) => {
     });
   }
 };
+
+exports.Update_Project = async (req, res) => {
+  console.log("Project Update Req Hit");
+  const { projectID, projectName, projectDesc, maxCollaborators, visibility } =
+    req.body;
+
+  if (!projectID) {
+    return res.status(400).json({
+      success: false,
+      message: "ProjectId is required",
+    });
+  }
+  try {
+    const project = await Project.findById(projectID);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    project.name = projectName || project.name;
+    project.description = projectDesc || project.description;
+    project.settings.maxCollaborators =
+      maxCollaborators || project.settings.maxCollaborators;
+    project.settings.visibility = visibility || project.settings.visibility;
+
+    await project.save();
+
+    return res.json({
+      success: true,
+      message: "Project updated successfully",
+      project,
+    });
+  } catch (error) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.getProject = async (req, res) => {
+  console.log("Sending Project Data...");
+  const { projectID } = req.body;
+  if (!projectID) {
+    return res.status(400).json({ success: false, message: "ProjectId is required" });
+  }
+  try {
+    const project = await Project.findById(projectID);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+    return res.json({ success: true, data: project });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

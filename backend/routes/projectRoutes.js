@@ -9,5 +9,7 @@ router.post('/create', projectController.createProject);
 router.post('/join', projectController.joinProject);
 router.get('/my-projects', projectController.getUserProjects);
 router.post('/link_projects', projectController.getUserLinkProjects);
+router.put('/update-project',projectController.Update_Project);
+router.post('/get-project',projectController.getProject);
 
 module.exports = router;

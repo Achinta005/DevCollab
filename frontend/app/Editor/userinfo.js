@@ -24,26 +24,27 @@ const UserProfile = () => {
     }
 
     // Get project data from URL parameters
-    const projectId = searchParams.get('projectId');
+    const projectId = searchParams.get("projectId");
     if (projectId) {
       const project = {
         id: projectId,
-        name: searchParams.get('name'),
-        description: searchParams.get('description'),
-        inviteCode: searchParams.get('inviteCode'),
+        name: searchParams.get("name"),
+        description: searchParams.get("description"),
+        inviteCode: searchParams.get("inviteCode"),
         owner: {
-          id: searchParams.get('ownerId'),
-          name: searchParams.get('ownerName')
+          id: searchParams.get("ownerId"),
+          name: searchParams.get("ownerName"),
         },
-        collaborators: parseInt(searchParams.get('collaborators')) || 0,
-        files: parseInt(searchParams.get('files')) || 0,
-        visibility: searchParams.get('visibility'),
-        createdAt: searchParams.get('createdAt')
+        collaborators: parseInt(searchParams.get("collaborators")) || 0,
+        files: parseInt(searchParams.get("files")) || 0,
+        visibility: searchParams.get("visibility"),
+        createdAt: searchParams.get("createdAt"),
+        currentUserId: userData.id,
       };
 
       setProjectData(project);
     } else {
-      router.push('/');
+      router.push("/");
     }
   }, [router, searchParams]);
 
@@ -67,15 +68,16 @@ const UserProfile = () => {
         >
           ← HOME
         </button>
-        
+
         <div className="text-amber-50 text-lg font-semibold">
           Editor: {projectData.name}
         </div>
-        
+
         <div className="text-amber-50 text-sm">
           Welcome, {user.username}
         </div>
       </div>
+
       {/* Project Components */}
       <ProjectInfo projectData={projectData} />
       <CodeEditor projectData={projectData} />
