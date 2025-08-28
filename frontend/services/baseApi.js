@@ -3,9 +3,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export const apiCall = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
   
+  // Only set Content-Type for non-FormData requests
+  const defaultHeaders = {};
+  if (!(options.body instanceof FormData)) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
+  
   const config = {
     headers: {
-      "Content-Type": "application/json",
+      ...defaultHeaders,
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },

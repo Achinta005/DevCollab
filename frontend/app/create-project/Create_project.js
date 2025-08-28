@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Label } from '../../components/ui/label'
-import { cn } from '../lib/util'
-import { Input } from '../../components/ui/input'
+import { Label } from "../../components/ui/label";
+import { cn } from "../lib/util";
+import { Input } from "../../components/ui/input";
 import { getAuthToken } from "../lib/auth";
 import { useRouter } from "next/navigation";
+import { projectService } from "../../services/projectService";
 
 const Create_project = () => {
   const router = useRouter();
@@ -21,6 +22,12 @@ const Create_project = () => {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
 
+  useEffect(() => {
+    const storedToken = getAuthToken();
+    if (storedToken) setToken(storedToken);
+    else setError("Authentication token not found. Please login again.");
+  }, []);
+
   const createProject = async (token, formData) => {
     setLoading(true);
     setError("");
@@ -31,28 +38,16 @@ const Create_project = () => {
       description: formData.description.trim(),
       settings: {
         visibility: formData.visibility,
-        allowedLanguages: formData.allowedLanguages.filter((lang) => lang.trim() !== ""),
+        allowedLanguages: formData.allowedLanguages.filter(
+          (lang) => lang.trim() !== ""
+        ),
         maxCollaborators: parseInt(formData.maxCollaborators),
       },
     };
-
-    console.log("Sending payload:", payload);
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = projectService.createProject(payload);
+      const data = await response;
 
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
-
-      console.log("Project Created Successfully:", data);
       setSuccess("Project created successfully!");
 
       // Reset form after successful creation
@@ -76,36 +71,8 @@ const Create_project = () => {
     }
   };
 
-  useEffect(() => {
-    const storedToken = getAuthToken();
-    if (storedToken) setToken(storedToken);
-    else setError("Authentication token not found. Please login again.");
-  }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!token) {
-      setError("No authentication token found");
-      return;
-    }
-    if (!formData.name.trim()) {
-      setError("Project name is required");
-      return;
-    }
-    if (!formData.description.trim()) {
-      setError("Project description is required");
-      return;
-    }
-    if (!formData.visibility) {
-      setError("Please select project visibility");
-      return;
-    }
-    if (formData.allowedLanguages.length === 0) {
-      setError("Please select at least one programming language");
-      return;
-    }
-
     await createProject(token, formData);
   };
 
@@ -136,7 +103,10 @@ const Create_project = () => {
         <form className="my-6" onSubmit={handleSubmit}>
           {/* Project Name */}
           <LabelInputContainer>
-            <Label htmlFor="name" className="text-green-500 text-center text-md">
+            <Label
+              htmlFor="name"
+              className="text-green-500 text-center text-md"
+            >
               Project Name
             </Label>
             <Input
@@ -153,7 +123,10 @@ const Create_project = () => {
 
           {/* Description */}
           <LabelInputContainer className="mb-2">
-            <Label htmlFor="description" className="text-green-500 text-center text-md">
+            <Label
+              htmlFor="description"
+              className="text-green-500 text-center text-md"
+            >
               Description
             </Label>
             <Input
@@ -170,7 +143,10 @@ const Create_project = () => {
 
           {/* Visibility */}
           <LabelInputContainer className="mb-2">
-            <Label htmlFor="visibility" className="text-green-500 text-center text-md">
+            <Label
+              htmlFor="visibility"
+              className="text-green-500 text-center text-md"
+            >
               Visibility
             </Label>
             <select
@@ -182,44 +158,59 @@ const Create_project = () => {
               required
             >
               <option value="">Select Project Visibility</option>
-              <option value="public">Public (Others can join with invitation link)</option>
-              <option value="private">Private (No one can join this project)</option>
+              <option value="public">
+                Public (Others can join with invitation link)
+              </option>
+              <option value="private">
+                Private (No one can join this project)
+              </option>
             </select>
           </LabelInputContainer>
 
           {/* Allowed Languages */}
           <LabelInputContainer className="mb-2">
-            <Label htmlFor="allowedLanguages" className="text-green-500 text-center text-md">
+            <Label
+              htmlFor="allowedLanguages"
+              className="text-green-500 text-center text-md"
+            >
               Allowed Languages
             </Label>
             <div className="grid grid-cols-2 px-2">
-              {["javascript", "python", "java", "cpp", "html", "css"].map((lang) => (
-                <label key={lang} className="flex items-center gap-2 capitalize text-white">
-                  <input
-                    type="checkbox"
-                    name="allowedLanguages"
-                    value={lang}
-                    checked={formData.allowedLanguages.includes(lang)}
-                    onChange={(e) => {
-                      const { checked, value } = e.target;
-                      setFormData((prev) => ({
-                        ...prev,
-                        allowedLanguages: checked
-                          ? [...prev.allowedLanguages, value]
-                          : prev.allowedLanguages.filter((l) => l !== value),
-                      }));
-                      if (error) setError("");
-                    }}
-                  />
-                  {lang}
-                </label>
-              ))}
+              {["javascript", "python", "java", "cpp", "html", "css"].map(
+                (lang) => (
+                  <label
+                    key={lang}
+                    className="flex items-center gap-2 capitalize text-white"
+                  >
+                    <input
+                      type="checkbox"
+                      name="allowedLanguages"
+                      value={lang}
+                      checked={formData.allowedLanguages.includes(lang)}
+                      onChange={(e) => {
+                        const { checked, value } = e.target;
+                        setFormData((prev) => ({
+                          ...prev,
+                          allowedLanguages: checked
+                            ? [...prev.allowedLanguages, value]
+                            : prev.allowedLanguages.filter((l) => l !== value),
+                        }));
+                        if (error) setError("");
+                      }}
+                    />
+                    {lang}
+                  </label>
+                )
+              )}
             </div>
           </LabelInputContainer>
 
           {/* Max Collaborators */}
           <LabelInputContainer className="mb-4">
-            <Label htmlFor="maxCollaborators" className="text-green-500 text-md text-center">
+            <Label
+              htmlFor="maxCollaborators"
+              className="text-green-500 text-md text-center"
+            >
               Max Collaborators: {formData.maxCollaborators}
             </Label>
             <input
@@ -234,8 +225,16 @@ const Create_project = () => {
             />
           </LabelInputContainer>
 
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">{error}</div>}
-          {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm mb-4">{success}</div>}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm mb-4">
+              {success}
+            </div>
+          )}
 
           <button
             className="group/btn relative block h-10 w-full rounded-md bg-gradient-to-br from-black to-neutral-600 font-medium text-white mb-3"
@@ -261,5 +260,7 @@ const BottomGradient = () => (
 );
 
 const LabelInputContainer = ({ children, className }) => (
-  <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
+  <div className={cn("flex w-full flex-col space-y-2", className)}>
+    {children}
+  </div>
 );

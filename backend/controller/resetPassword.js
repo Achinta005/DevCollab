@@ -27,6 +27,7 @@ exports.resetPassword= async (req, res) => {
             success: true,
             message: "Password reset successfully"
         });
+        console.log("\nPassword(",hashedPassword,") Updated successfully\n");
         
     } catch (error) {
         console.error('Error resetting password:', error);

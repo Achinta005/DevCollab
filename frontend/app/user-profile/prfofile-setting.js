@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Label } from '../../components/ui/label'
 import { cn } from '../lib/util'
 import { Input } from '../../components/ui/input'
+import { userService } from "../../services/userServices";
 
 const Profile_Setting = ({ username }) => {
   const [success, setSuccess] = useState("");
@@ -28,10 +29,7 @@ const Profile_Setting = ({ username }) => {
     const loadUserData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/image/user/profile/${username}`
-        );
-        const userData = await response.json();
+        const userData = await userService.getProfile(username);
 
         const loadedData = {
           firstname: userData.user.firstname || "",
@@ -79,22 +77,10 @@ const Profile_Setting = ({ username }) => {
 
     const updateProfile = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/image/user/profile`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(formData),
-          }
-        );
-
-        const data = await response.json();
+        const data = await userService.updateProfile(formData);
         if (!data.success) {
           console.error("Update failed:", data.message);
         } else {
-          console.log("Profile updated:", data.user);
           setSuccess("Profile updated successfully!");
         }
       } catch (err) {
@@ -103,7 +89,6 @@ const Profile_Setting = ({ username }) => {
     };
 
     updateProfile();
-    console.log(formData);
     window.location.reload();
   };
 

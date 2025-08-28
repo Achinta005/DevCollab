@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input'
 import { getAuthToken } from "../lib/auth";
 import { SquarePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { projectService } from "../../services/projectService";
 
 const Join_Project = () => {
   const router = useRouter();
@@ -34,28 +35,11 @@ const Join_Project = () => {
     setSuccess("");
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/projects/link_projects`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ inviteCode: formData.inviteCode }),
-        }
-      );
+      const response = projectService.linkProjects(formData.inviteCode);
+      const data = await response;
 
-      const data = await response.json();
-      console.log(data.data);
       setProject(data.data);
-
-      if (response.ok && data.success) {
-        setSuccess(`Project Found: ${data.data.name} by ${data.data.owner.username}`);
-      } else {
-        setError(data.message || "Unable to fetch project");
-      }
-    } catch (_err) {
+    } catch (err) {
       setError("Server error. Please try again later.");
     } finally {
       setLoading(false);
@@ -70,22 +54,11 @@ const Join_Project = () => {
   const handleProjSubmit = (inviteCode) => {
     const joinProj = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/join`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ inviteCode }),
-        });
+        const response = projectService.joinProject(inviteCode)
+        const data = await response;
 
-        const data = await response.json();
-        console.log(data);
         setjoinMsg(data.message);
 
-        if (response.ok && data.success) {
-          // optionally handle success
-        }
       } catch (err) {
         console.error("Error joining project:", err);
       }

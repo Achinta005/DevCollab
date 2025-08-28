@@ -34,6 +34,7 @@ exports.createProject = async (req, res) => {
       project.generateInviteCode();
     }
     await project.save();
+    console.log("\nProject(", name, ") Created Successfully\n");
     await project.populate(
       "owner",
       "username firstname lastname profile.avatar"
@@ -49,6 +50,7 @@ exports.createProject = async (req, res) => {
       message: "Error creating project",
       error: error.message,
     });
+    console.error("Error in Creating Project :", error);
   }
 };
 
@@ -103,6 +105,13 @@ exports.joinProject = async (req, res) => {
     if (result.modifiedCount === 0) {
       throw new Error("Failed to add collaborator");
     }
+    console.log(
+      "\nUser ",
+      userId,
+      "Joined Project",
+      project.name,
+      "Successfully\n"
+    );
 
     // Get the updated project with populated collaborators
     const updatedProject = await Project.findById(project._id)
@@ -147,6 +156,7 @@ exports.getUserProjects = async (req, res) => {
       success: true,
       data: projects,
     });
+    console.log("\nUser Projects fetched Successfully..\n");
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -191,6 +201,13 @@ exports.getUserLinkProjects = async (req, res) => {
         inviteCode: inviteCode,
       },
     });
+    console.log(
+      "\nFetched Project(",
+      project.name,
+      ") For Invitation Code(",
+      inviteCode,
+      ")\n"
+    );
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -201,7 +218,6 @@ exports.getUserLinkProjects = async (req, res) => {
 };
 
 exports.Update_Project = async (req, res) => {
-  console.log("Project Update Req Hit");
   const { projectID, projectName, projectDesc, maxCollaborators, visibility } =
     req.body;
   if (!projectID) {
@@ -226,7 +242,7 @@ exports.Update_Project = async (req, res) => {
     project.settings.visibility = visibility || project.settings.visibility;
 
     await project.save();
-
+    console.log("\nProject Metadata Updated Successfully..","Project Name:",projectName,"Project Description:",projectDesc,"Project maxCollaborators:",maxCollaborators,"Project Visibility:",visibility,"\n");
     return res.json({
       success: true,
       message: "Project updated successfully",
@@ -242,7 +258,6 @@ exports.Update_Project = async (req, res) => {
 };
 
 exports.getProject = async (req, res) => {
-  console.log("Sending Project Data...");
   const { projectID } = req.body;
   if (!projectID) {
     return res
@@ -262,6 +277,7 @@ exports.getProject = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
+    console.log("\nProject Sending Successfully...",project.name,"\n")
     return res.json({ success: true, data: project });
   } catch (err) {
     console.error(err);
@@ -309,7 +325,7 @@ exports.updateCollaboratorRole = async (req, res) => {
         message: "No changes made",
       });
     }
-
+    console.log("\nCollaborators Role Updated To..",newRole,"\n")
     return res.json({
       success: true,
       message: "Role updated successfully",
@@ -350,8 +366,6 @@ exports.removeCollaborator = async (req, res) => {
   try {
     const { projectId, collaboratorId } = req.body;
 
-    console.log("Remove collaborator request:", { projectId, collaboratorId });
-
     // Validation
     if (!projectId || !collaboratorId) {
       return res.status(400).json({
@@ -360,7 +374,6 @@ exports.removeCollaborator = async (req, res) => {
       });
     }
 
-    // Method 1: Using updateOne with $pull (Recommended)
     const result = await Project.updateOne(
       { _id: projectId },
       {
@@ -384,6 +397,7 @@ exports.removeCollaborator = async (req, res) => {
       });
     }
 
+    console.log("\nCollaborator Removed Successfully..\n")
     return res.json({
       success: true,
       message: "Collaborator removed successfully",
@@ -401,8 +415,6 @@ exports.addCollaborator = async (req, res) => {
   try {
     const { projectId, email, role = "editor" } = req.body;
     const requesterId = req.user.id;
-
-    console.log("Add collaborator request:", { projectId, email, role });
 
     // Validation
     if (!projectId || !email) {
@@ -445,8 +457,8 @@ exports.addCollaborator = async (req, res) => {
       });
     }
 
-    // Check collaborator limit
     if (project.collaborators.length >= project.settings.maxCollaborators) {
+      console.log("\nCollaborator Added(Email:",email,")\n")
       return res.status(400).json({
         success: false,
         message: "Project has reached maximum collaborators limit",

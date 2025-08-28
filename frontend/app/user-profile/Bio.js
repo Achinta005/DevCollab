@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { SquarePen, Check, X, Loader2 } from "lucide-react";
 import Profile_Settings from "./prfofile-setting";
 import Link from "next/link";
+import { userService } from "../../services/userServices";
 
 const Bio = () => {
   const [user, setUser] = useState(null);
@@ -120,39 +121,18 @@ const Bio = () => {
   }, [image, croppedAreaPixels]);
 
   const uploadImage = async (file) => {
-    if (!user?.username) {
-      throw new Error("User not authenticated");
-    }
+    if (!user?.username) throw new Error("User not authenticated");
 
     const formData = new FormData();
-    formData.append("profilePic", file, "profile.jpg");
     formData.append("username", user.username);
+    formData.append("profilePic", file, file.name || "profile.jpg");
 
-    console.log("Uploading with username:", user.username);
-    console.log("File size:", file.size);
-
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/image/upload`, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Upload error response:", errorText);
-
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { message: errorText };
-      }
-
-      throw new Error(errorData.message || `Upload failed: ${res.statusText}`);
+    try {
+      const data = await userService.uploadImage(formData);
+      setImg(data.imageUrl);
+    } catch (err) {
+      console.error("Error uploading image:", err);
     }
-
-    const data = await res.json();
-    console.log("Upload success:", data);
-    setImg(data.imageUrl);
   };
 
   const getImage = async () => {
@@ -161,22 +141,9 @@ const Bio = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/get/profile-pic`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username: user.username }),
-        }
-      );
+      const res = userService.getImage(user.username);
+      const data = await res;
 
-      if (!res.ok) {
-        throw new Error(`Failed to fetch profile picture: ${res.statusText}`);
-      }
-
-      const data = await res.json();
       if (data.avatar) {
         setImg(data.avatar);
       } else {

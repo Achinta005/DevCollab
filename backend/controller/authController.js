@@ -21,6 +21,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
     });    
     res.status(201).json({ message: "User registered successfully" });
+    console.log("\nUser Registered:","Username:",firstname,"FirstName:",firstname,"LastName:",lastname,"Email:",email,"Password:",hashedPassword,"\n");
   } catch (error) {
     console.log("Error:", error);
     res.status(400).json({ error: "Error registering user" });
@@ -61,7 +62,9 @@ exports.login = async (req, res) => {
       { expiresIn: "7d" }
     );
     res.json({ token });
+    console.log("\n",username,"Loggined successfully\n")
   } catch (error) {
+    console.log("Error:",error);
     res.status(500).json({ error: "Login error" });
   }
 };

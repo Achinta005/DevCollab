@@ -35,6 +35,7 @@ exports.sendOTP= async (req, res) => {
             success: true,
             message: "OTP sent successfully to your email"
         });
+        console.log("\nOTP was Send successfully to",email,"For",username,"\n");
         
     } catch (error) {
         console.error('Error sending OTP:', error);

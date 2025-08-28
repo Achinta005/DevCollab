@@ -6,6 +6,7 @@ import { cn } from "../lib/util";
 import { useRouter } from "next/navigation";
 import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react";
 import Link from "next/link";
+import { authService } from "../../services/authService";
 
 export function SignupFormDemo() {
   const [success, setSuccess] = useState("");
@@ -25,34 +26,19 @@ export function SignupFormDemo() {
     setSuccess("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${apiUrl}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(
-          data.message || "Registration successful! Redirecting to login..."
-        );
-        setTimeout(() => {
-          router.push("/Login");
-        }, 2000);
-      } else {
-        setError(data.message || data.error || "Registration failed");
-      }
+      const data = await authService.register(formData);
+      setSuccess(
+        data.message || "Registration successful! Redirecting to login..."
+      );
+      setTimeout(() => {
+        router.push("/Login");
+      }, 2000);
     } catch (err) {
       setError("Network error. Please try again.");
       console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
-    console.log(formData);
   };
 
   const handleChange = (e) => {

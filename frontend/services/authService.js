@@ -1,23 +1,19 @@
 import { apiCall } from "./baseApi";
 
 export const authService = {
-  login: async (credentials) => {
-    return apiCall('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  },
-
-  register: async (userData) => {
+  //API CALL FOR USER REGISTRATION
+  register: async (formData) => {
     return apiCall('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: JSON.stringify(formData),
     });
   },
 
-  logout: async () => {
-    return apiCall('/api/auth/logout', {
+  //API CALL FOR USER LOGIN
+  login: async (formData) => {
+    return apiCall('/api/auth/login', {
       method: 'POST',
+      body: JSON.stringify(formData),
     });
   },
 };

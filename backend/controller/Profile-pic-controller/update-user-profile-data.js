@@ -3,7 +3,6 @@ const User = require('../../models/User');
 
 exports.update_user_profile_data=async (req, res) => {
   try {
-    console.log('Update user profile route hit');
     const { 
       username, 
       firstname, 
@@ -55,7 +54,7 @@ exports.update_user_profile_data=async (req, res) => {
 
     await user.save();
 
-    console.log('User profile updated:', username);
+    console.log('\nUser profile updated Successfully... For ', username,"\n");
 
     res.json({
       success: true,

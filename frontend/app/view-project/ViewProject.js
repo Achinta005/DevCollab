@@ -17,7 +17,6 @@ const ViewProject = () => {
       const data = await response;
       
       if (data.success) {
-        console.log("User projects:", data.data);
         return data.data; // Returns array of projects
       } else {
         throw new Error(data.message || "Failed to fetch projects");
@@ -42,7 +41,6 @@ const ViewProject = () => {
         setLoading(false);
       }
     };
-
     loadProjects();
   }, []);
 

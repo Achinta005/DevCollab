@@ -3,9 +3,6 @@ const { upload, deleteFromCloudinary } = require('../../config/cloudinary');
 const User=require('../../models/User');
 
 exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
-  console.log('Upload route hit');
-  
-  // Use multer middleware
   upload.single('profilePic')(req, res, async (err) => {
     if (err) {
       console.error('Multer error:', err);
@@ -32,12 +29,10 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
     }
 
     try {
-      console.log('File after multer:', req.file);
-      console.log('Body after multer:', req.body);
 
       // Check if file was uploaded
       if (!req.file) {
-        console.log('No file in request');
+        console.log('\nNo file in request\n');
         return res.status(400).json({
           success: false,
           message: 'No file uploaded'
@@ -46,7 +41,6 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
 
       // Get username from request body
       const { username } = req.body;
-      console.log('Username from body:', username);
       
       if (!username) {
         // If username not in body, cleanup uploaded file
@@ -60,11 +54,11 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
       }
 
       // Find user in database
-      console.log('Looking for user:', username);
+      console.log('\nLooking for user:', username,"\n");
       const user = await User.findOne({ username: username });
       
       if (!user) {
-        console.log('User not found:', username);
+        console.log('\nUser not found:', username,"\n");
         // If user not found, delete the uploaded image from Cloudinary
         if (req.file.public_id) {
           await deleteFromCloudinary(req.file.public_id);
@@ -75,14 +69,14 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
         });
       }
 
-      console.log('User found:', user.username);
+      console.log('\nUser found:', user.username,"\n");
 
       // Delete old profile picture if it exists
       if (user.profile && user.profile.cloudinaryPublicId) {
-        console.log('Deleting old image:', user.profile.cloudinaryPublicId);
+        console.log('\nDeleting old image:', user.profile.cloudinaryPublicId,"\n");
         try {
           await deleteFromCloudinary(user.profile.cloudinaryPublicId);
-          console.log('Old image deleted successfully');
+          console.log('\nOld image deleted successfully\n');
         } catch (error) {
           console.error('Error deleting old profile picture:', error);
           // Continue with upload even if deletion fails
@@ -101,8 +95,7 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
       
       await user.save();
 
-      console.log('User updated with new avatar:', user.profile.avatar);
-      console.log('Cloudinary public_id:', user.profile.cloudinaryPublicId);
+      console.log('\nUser updated with new avatar:', user.profile.avatar,"\n");
 
       res.json({
         success: true,
@@ -127,7 +120,6 @@ exports.upload_profile_picture_to_cloudinary=(req, res, next) => {
       if (req.file && req.file.public_id) {
         try {
           await deleteFromCloudinary(req.file.public_id);
-          console.log('Cleanup: deleted uploaded file from cloudinary');
         } catch (cleanupError) {
           console.error('Error cleaning up uploaded file:', cleanupError);
         }

@@ -1,4 +1,3 @@
-// =================== config/cloudinary.js (IMPROVED VERSION) ===================
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
@@ -14,7 +13,6 @@ cloudinary.config({
 const testCloudinaryConnection = async () => {
   try {
     const result = await cloudinary.api.ping();
-    console.log('✅ Cloudinary connection successful:', result);
     return true;
   } catch (error) {
     console.error('❌ Cloudinary connection failed:', error.message);

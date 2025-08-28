@@ -3,9 +3,7 @@ const User=require('../../models/User');
 
 exports.get_profile_pic_url=async (req, res) => {
   try {
-    console.log('Get profile pic route hit');
     const { username } = req.body;
-    console.log('Requested username:', username);
 
     if (!username) {
       return res.status(400).json({
@@ -18,8 +16,6 @@ exports.get_profile_pic_url=async (req, res) => {
     const user = await User.findOne({ username: username })
       .select('username profile.avatar firstname lastname');
     
-    console.log('Found user:', user ? user.username : 'null');
-    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -28,7 +24,7 @@ exports.get_profile_pic_url=async (req, res) => {
     }
 
     const avatarUrl = user.profile && user.profile.avatar ? user.profile.avatar : null;
-    console.log('User avatar:', avatarUrl);
+    console.log('\nUser avatar is :', avatarUrl,"For User",username,"\n");
 
     res.json({
       success: true,

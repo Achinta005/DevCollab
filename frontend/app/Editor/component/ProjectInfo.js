@@ -56,11 +56,13 @@ const ProjectInfo = ({ projectData }) => {
       setNameWidth(nameSpanRef.current.offsetWidth + 10);
     }
   }, [fetchProject.name, editName]);
+
   useEffect(() => {
     if (descSpanRef.current) {
       setDescWidth(descSpanRef.current.offsetWidth + 10);
     }
   }, [fetchProject.projectDesc, editDesc]);
+
   useEffect(() => {
     if (MCollSpanRef.current) {
       setMCollWidth(MCollSpanRef.current.offsetWidth + 10);
@@ -136,7 +138,6 @@ const ProjectInfo = ({ projectData }) => {
         if (!data.success) {
           console.error("Update failed:", data.message);
         } else {
-          console.log("Project updated:", data.projectName);
           setSuccess("Projaect updated successfully!");
         }
       } catch (err) {
@@ -145,7 +146,6 @@ const ProjectInfo = ({ projectData }) => {
     };
 
     updatePrjectData();
-    console.log(formData, projectData.id);
     window.location.reload();
   };
 
@@ -275,7 +275,6 @@ const ProjectInfo = ({ projectData }) => {
       );
       const data = await response;
 
-      console.log("Collaborator removed successfully!");
     } catch (error) {
       console.error("Error removing collaborator:", error);
 
@@ -327,7 +326,6 @@ const ProjectInfo = ({ projectData }) => {
           ),
         }));
       }
-      console.log("Role updated successfully!");
     } catch (error) {
       console.error("Error updating collaborator role:", error);
       // Rollback optimistic update
@@ -397,7 +395,7 @@ const ProjectInfo = ({ projectData }) => {
                         ref={nameSpanRef}
                         className="absolute top-0 left-0 invisible whitespace-pre text-2xl font-bold"
                       >
-                        {fetchProject.projectName}
+                        {formData.projectName}
                       </span>
 
                       <input
@@ -520,7 +518,7 @@ const ProjectInfo = ({ projectData }) => {
                           ref={MCollSpanRef}
                           className="absolute top-0 left-0 invisible whitespace-pre text-2xl font-bold"
                         >
-                          {fetchProject.maxCollaborators}
+                          {formData.maxCollaborators}
                         </span>
 
                         <input

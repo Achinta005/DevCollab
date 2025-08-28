@@ -17,6 +17,7 @@ exports.getEmail= async (req, res) => {
             email: user.email,
             message: "User email retrieved successfully"
         });
+        console.log("\nEmail:",user.email,"Fetched successfully for",username,"\n")
     } catch (error) {
         console.error('Error retrieving user email:', error);
         res.status(500).json({ 

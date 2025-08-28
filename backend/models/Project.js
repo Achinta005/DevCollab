@@ -44,17 +44,16 @@ const ProjectSchema = new mongoose.Schema({
         allowedLanguages: [{ type: String }],
         maxCollaborators: { type: Number, default: 10 }
     },
-    inviteCode: { type: String, unique: true, sparse: true }, // For joining via code
+    inviteCode: { type: String, unique: true, sparse: true }, // Keep unique: true
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 }, {
     timestamps: true
 });
 
-// Indexes
+// Indexes (keep only necessary ones)
 ProjectSchema.index({ owner: 1 });
 ProjectSchema.index({ 'collaborators.user': 1 });
-ProjectSchema.index({ inviteCode: 1 });
 ProjectSchema.index({ name: 'text', description: 'text' });
 
 // Generate unique invite code

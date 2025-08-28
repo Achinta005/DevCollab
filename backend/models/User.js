@@ -9,7 +9,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     profile: {
         avatar: { type: String },
-        cloudinaryPublicId: { type: String }, // Added for Cloudinary management
+        cloudinaryPublicId: { type: String }, // Cloudinary management
         bio: { type: String },
         skills: { type: String },
         experience: { type: String },
@@ -26,10 +26,6 @@ const UserSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
-
-// Indexes for better performance
-UserSchema.index({ username: 1 });
-UserSchema.index({ email: 1 });
 
 // Virtual for full name
 UserSchema.virtual('fullName').get(function() {
@@ -82,16 +78,14 @@ UserSchema.statics.findByUsernameOrEmail = function(identifier) {
     });
 };
 
-// FIXED: Pre-save hook to hash password ONLY if it's not already hashed
+// Pre-save hook to hash password ONLY if it's not already hashed
 UserSchema.pre('save', async function(next) {
-    // Only hash the password if it has been modified (or is new)
     if (!this.isModified('password')) return next();
     
-    // CRITICAL FIX: Skip hashing if password is already hashed
+    // Skip hashing if password is already hashed
     if (this.password.startsWith('$2b$')) return next();
     
     try {
-        // Hash password with cost of 12
         const hashedPassword = await bcrypt.hash(this.password, 12);
         this.password = hashedPassword;
         next();
@@ -117,7 +111,6 @@ UserSchema.pre('save', function(next) {
 UserSchema.set('toJSON', {
     virtuals: true,
     transform: function(doc, ret) {
-        // Remove sensitive data
         delete ret.password;
         delete ret.__v;
         return ret;

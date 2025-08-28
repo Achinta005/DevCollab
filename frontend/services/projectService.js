@@ -6,6 +6,7 @@ export const projectService = {
     return apiCall("/api/projects/my-projects");
   },
 
+  //API CALL FOR FINDING PROJECT BASED ON PROJECT INVITE CODE
   linkProjects: async (inviteCode) => {
     return apiCall("/api/projects/link_projects", {
       method: "POST",
@@ -13,11 +14,20 @@ export const projectService = {
     });
   },
   
+  //API CALL FOR JOINING A PROJECT USING INVITE CODE
   joinProject: async (inviteCode) => {
     return apiCall("/api/projects/join", {
       method: "POST",
       body: JSON.stringify({ inviteCode }),
     });
+  },
+
+  //API CALL FOR CREATING NEW PROJECT
+  createProject:async(payload)=>{
+    return apiCall('/api/projects/create',{
+      method:'POST',
+      body:JSON.stringify(payload),
+    })
   },
 
   //API CALL FOR FETCHING PROJECT METADATA USING PROJECT ID

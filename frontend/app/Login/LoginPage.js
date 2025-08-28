@@ -8,12 +8,13 @@ import Link from "next/link";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { cn } from "../lib/util";
+import { authService } from "../../services/authService";
 
 // Separate component for search params logic
 const SearchParamsHandler = () => {
   const searchParams = useSearchParams();
   const message = searchParams ? searchParams.get("message") : "";
-  
+
   if (message) {
     return (
       <div className="mb-4 p-2 text-green-700 bg-green-100 rounded">
@@ -21,7 +22,7 @@ const SearchParamsHandler = () => {
       </div>
     );
   }
-  
+
   return null;
 };
 
@@ -49,31 +50,17 @@ const LoginForm = () => {
     setError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const data = await authService.login(formData);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setAuthToken(data.token);
-        router.push("/");
-        router.refresh();
-      } else {
-        setError(data.message || "Login failed");
-      }
+      setAuthToken(data.token);
+      router.push("/");
+      router.refresh();
     } catch (err) {
       setError("Network error. Please try again.");
       console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
-    console.log(formData);
   };
 
   return (
@@ -87,7 +74,9 @@ const LoginForm = () => {
 
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-100 mb-1">Welcome Back</h2>
+          <h2 className="text-3xl font-bold text-gray-100 mb-1">
+            Welcome Back
+          </h2>
           <p className="text-gray-200 font-bold pb-3">Sign in to Start</p>
         </div>
 
@@ -95,13 +84,20 @@ const LoginForm = () => {
           className="mt-8 space-y-6 bg-white/10 backdrop-blur-3xl p-6 px-5 rounded-lg"
           onSubmit={handleSubmit}
         >
-          <Suspense fallback={<div className="mb-4 p-2 bg-gray-100 rounded animate-pulse h-10"></div>}>
+          <Suspense
+            fallback={
+              <div className="mb-4 p-2 bg-gray-100 rounded animate-pulse h-10"></div>
+            }
+          >
             <SearchParamsHandler />
           </Suspense>
 
           <div className="space-y-4">
             <LabelInputContainer>
-              <Label htmlFor="username" className="block text-sm font-medium mb-1">
+              <Label
+                htmlFor="username"
+                className="block text-sm font-medium mb-1"
+              >
                 Username
               </Label>
               <Input
@@ -131,7 +127,10 @@ const LoginForm = () => {
             </LabelInputContainer>
 
             <LabelInputContainer>
-              <Label htmlFor="password" className="block text-sm font-medium mb-1">
+              <Label
+                htmlFor="password"
+                className="block text-sm font-medium mb-1"
+              >
                 Password
               </Label>
               <Input
@@ -189,7 +188,9 @@ const BottomGradient = () => (
 );
 
 const LabelInputContainer = ({ children, className }) => (
-  <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
+  <div className={cn("flex w-full flex-col space-y-2", className)}>
+    {children}
+  </div>
 );
 
 const LoginPage = () => {
