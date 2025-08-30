@@ -3,8 +3,9 @@ import React, { useState, useEffect } from "react";
 import { getUserFromToken } from "../lib/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProjectInfo from "./component/ProjectInfo";
-import CodeEditor from "./component/CodeEditor";
+import Editor from "./component/CodeEditor";
 import FileManager from "./component/FileManager";
+import { FileManagerProvider } from "../context/FileManagerContext";
 
 const UserProfile = () => {
   const [mounted, setMounted] = useState(false);
@@ -48,7 +49,7 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="bg-black/90 min-h-screen">
+    <div className="bg-black/90 h-fit">
       {/* Header */}
       <div className="flex items-center justify-between p-5">
         <button
@@ -59,19 +60,19 @@ const UserProfile = () => {
         </button>
 
         <div className="text-amber-50 text-lg font-semibold">
-          Editor: {projectData.name}
+          Welcome to DevCollab
         </div>
 
-        <div className="text-amber-50 text-sm">
-          Welcome, {user.username}
-        </div>
+        <div className="text-amber-50 text-xl">Welcome {user.username}</div>
       </div>
 
       {/* Project Components */}
-      
+
       <ProjectInfo projectData={projectData} />
-      <CodeEditor projectData={projectData} />
-      <FileManager projectData={projectData}/>
+      <FileManagerProvider projectData={projectData}>
+        <FileManager projectData={projectData} />
+        <Editor />
+      </FileManagerProvider>
     </div>
   );
 };

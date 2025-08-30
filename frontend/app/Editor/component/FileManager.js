@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Upload,
   FolderPlus,
@@ -16,34 +10,83 @@ import {
   Grid,
   List,
   Search,
-  Filter,
-  MoreVertical,
-  ArrowLeft,
-  Home,
-  Image,
-  FileText,
-  Music,
-  Video,
-  Archive,
-  Code,
-  Settings,
-  Star,
-  Clock,
-  Users,
-  Eye,
-  Move,
-  Copy,
-  Loader,
   AlertCircle,
   CheckCircle,
   X,
   RefreshCw,
   ChevronRight,
   FolderOpen,
+  Image,
+  FileText,
+  Music,
+  Video,
+  Archive,
+  Code,
+  Home,
+  ArrowLeft,
+  MoreVertical,
+  Loader,
 } from "lucide-react";
-import { debounce } from "lodash";
+import { debounce } from "lodash"; // Explicitly import debounce
+import { useFileManager } from "../../context/FileManagerContext";
+import { projectService } from "../../../services";
+
+export const getFileIcon = (category, name, size = "w-8 h-8") => {
+  if (category === "folder") {
+    return <Folder className={`${size} text-green-500`} />;
+  }
+
+  const extension = name?.split(".").pop()?.toLowerCase();
+  switch (extension) {
+    case "jpg":
+    case "jpeg":
+    case "png":
+    case "gif":
+    case "svg":
+    case "webp":
+      return <Image className={`${size} text-green-500`} />;
+    case "mp4":
+    case "avi":
+    case "mov":
+    case "webm":
+      return <Video className={`${size} text-purple-500`} />;
+    case "mp3":
+    case "wav":
+    case "flac":
+    case "aac":
+      return <Music className={`${size} text-pink-500`} />;
+    case "zip":
+    case "rar":
+    case "7z":
+    case "tar":
+      return <Archive className={`${size} text-orange-500`} />;
+    case "js":
+    case "tsx":
+    case "py":
+    case "java":
+    case "cpp":
+      return <Code className={`${size} text-cyan-500`} />;
+    case "pdf":
+    case "doc":
+    case "docx":
+    case "txt":
+      return <FileText className={`${size} text-red-500`} />;
+    default:
+      return <File className={`${size} text-gray-500`} />;
+  }
+};
 
 const FileManager = ({ projectData }) => {
+  // Context
+  const {
+    folders,
+    fetchFolderContents,
+    fetchFolders,
+    setError,
+    API_BASE,
+    getAuthHeaders,
+  } = useFileManager();
+
   // Navigation state
   const [currentPath, setCurrentPath] = useState([
     { name: "root", id: "root" },
@@ -56,85 +99,66 @@ const FileManager = ({ projectData }) => {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameItem, setRenameItem] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [error, seterror] = useState("");
 
   // API integration state
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({});
-
-  // Folder state
-  const [folders, setFolders] = useState({
-    hierarchy: [],
-    flat: [],
-  });
   const [currentFolder, setCurrentFolder] = useState("root");
   const [selectedUploadFolder, setSelectedUploadFolder] = useState("root");
   const [currentFolderContents, setCurrentFolderContents] = useState({
     folders: [],
     files: [],
   });
-
-  const fileInputRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({});
+  const [fetchProject, setFetchProject] = useState({});
 
   // Configuration
   const projectId = projectData?.id;
-  const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/files`;
 
   // Helper functions
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${
-      typeof window !== "undefined"
-        ? localStorage.getItem("token")
-        : "mock-token"
-    }`,
-    "Content-Type": "application/json",
-  });
-
   const getFileIcon = (category, name, size = "w-8 h-8") => {
-    const extension = name?.split(".").pop()?.toLowerCase();
-
-    if (category === "folder")
+    if (category === "folder") {
       return <Folder className={`${size} text-blue-500`} />;
+    }
 
-    switch (category) {
-      case ".jpg":
-      case ".jpeg":
-      case ".png":
-      case ".gif":
-      case ".svg":
-      case ".webp":
+    const extension = name?.split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+      case "svg":
+      case "webp":
         return <Image className={`${size} text-green-500`} />;
-      case ".mp4":
-      case ".avi":
-      case ".mov":
-      case ".webm":
+      case "mp4":
+      case "avi":
+      case "mov":
+      case "webm":
         return <Video className={`${size} text-purple-500`} />;
-      case ".mp3":
-      case ".wav":
-      case ".flac":
-      case ".aac":
+      case "mp3":
+      case "wav":
+      case "flac":
+      case "aac":
         return <Music className={`${size} text-pink-500`} />;
-      case ".zip":
-      case ".rar":
-      case ".7z":
-      case ".tar":
+      case "zip":
+      case "rar":
+      case "7z":
+      case "tar":
         return <Archive className={`${size} text-orange-500`} />;
-      case ".js":
-      case ".tsx":
-      case ".py":
-      case ".java":
-      case ".cpp":
+      case "js":
+      case "tsx":
+      case "py":
+      case "java":
+      case "cpp":
         return <Code className={`${size} text-cyan-500`} />;
-      case ".pdf":
-      case ".doc":
-      case ".docx":
-      case ".txt":
+      case "pdf":
+      case "doc":
+      case "docx":
+      case "txt":
         return <FileText className={`${size} text-red-500`} />;
       default:
         return <File className={`${size} text-gray-500`} />;
@@ -145,7 +169,7 @@ const FileManager = ({ projectData }) => {
     if (!bytes) return "0 B";
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const formatDate = (dateString) => {
@@ -157,132 +181,12 @@ const FileManager = ({ projectData }) => {
     });
   };
 
-  // API functions ------------>
-  const fetchFolders = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE}/folders/project/${projectId}`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Failed to fetch folders: ${response.status}`
-        );
-      }
-      console.log("Fetching folders for projectId:", projectId);
-      const data = await response.json();
-      if (data.success) {
-        // setFolders(data.folders || { hierarchy: [], flat: [] });
-      } else {
-        throw new Error(data.message || "Failed to fetch folders");
-      }
-    } catch (error) {
-      setError(error.message);
-      console.error("Fetch folders error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFolderContents = async (folderId) => {
-    try {
-      setLoading(true);
-
-      // Fetch subfolders with projectId------------->
-      const foldersResponse = await fetch(
-        `${API_BASE}/folders/${folderId}/contents?projectId=${projectId}`,
-        { headers: getAuthHeaders() }
-      );
-
-      let subfolders = [];
-      if (foldersResponse.ok) {
-        const foldersData = await foldersResponse.json();
-        console.log(
-          `Folder contents for folderId: ${folderId}, projectId: ${projectId}`,
-          foldersData
-        );
-        if (foldersData.success) {
-          subfolders = foldersData.subfolders || [];
-        } else {
-          throw new Error(
-            foldersData.message || "Failed to fetch folder contents"
-          );
-        }
-      } else {
-        throw new Error(
-          `Failed to fetch folder contents: ${foldersResponse.status}`
-        );
-      }
-
-      // Fetch files in current folder----->
-      const queryParams = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: "20",
-        ...(selectedCategory !== "all" && { category: selectedCategory }),
-        ...(folderId !== "root" && { folderId }),
-        ...(folderId === "root" && { folderId: "root" }),
-      });
-
-      const filesResponse = await fetch(
-        `${API_BASE}/files/project/${projectId}?${queryParams}`,
-        { headers: getAuthHeaders() }
-      );
-
-      let files = [];
-      let pagination = {};
-      if (filesResponse.ok) {
-        const filesData = await filesResponse.json();
-        if (filesData.success) {
-          files = filesData.files || [];
-          pagination = filesData.pagination || {};
-        } else {
-          throw new Error(filesData.message || "Failed to fetch files");
-        }
-      } else {
-        throw new Error(`Failed to fetch files: ${filesResponse.status}`);
-      }
-
-      setCurrentFolderContents({ folders: subfolders, files });
-      setPagination(pagination);
-    } catch (error) {
-      setError(`Failed to load folder contents: ${error.message}`);
-      console.error("Fetch folder contents error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      if (!projectId) {
-        throw new Error("Project ID is missing");
-      }
-      console.log("Fetching categories for projectId:", projectId);
-      const response = await fetch(
-        `http://localhost:3001/files/files/project/${projectId}/categories`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth method
-          },
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch categories: ${response.status}`);
-      }
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.message || "Failed to fetch categories");
-      }
-      setCategories(data.categories || []);
-    } catch (error) {
-      console.error("Fetch categories error:", error);
-      setError(error.message);
-    }
-  };
-
+  // API functions
   const createFolder = async (name, parentId = "root") => {
+    if (!projectId) {
+      setError("Project ID is missing");
+      return;
+    }
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE}/folders/create`, {
@@ -296,14 +200,16 @@ const FileManager = ({ projectData }) => {
       });
 
       const data = await response.json();
-      if (data.success) {
-        setSuccess(`Folder "${name}" created successfully`);
-        setShowNewFolderModal(false);
-        await fetchFolders();
-        await fetchFolderContents(currentFolder);
-      } else {
+      if (!response.ok || !data.success) {
         throw new Error(data.message || "Failed to create folder");
       }
+
+      setSuccess(`Folder "${name}" created successfully`);
+      setShowNewFolderModal(false);
+      await Promise.all([
+        fetchFolders(),
+        fetchFolderContentsWrapper(currentFolder),
+      ]);
     } catch (error) {
       setError(error.message);
       console.error("Create folder error:", error);
@@ -312,8 +218,12 @@ const FileManager = ({ projectData }) => {
     }
   };
 
-  const uploadFiles = async (filesToUpload, folderPath = "root") => {
-    if (!filesToUpload.length) return;
+  const uploadFiles = async (filesToUpload, folderId = "root") => {
+    if (!filesToUpload?.length) return;
+    if (!projectId) {
+      setError("Project ID is missing");
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
@@ -324,39 +234,30 @@ const FileManager = ({ projectData }) => {
         const file = filesToUpload[i];
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("description", "");
-        formData.append("tags", "");
-        formData.append("folder", folderPath); // Changed from folderPath to folder
+        formData.append("folder", folderId);
 
-        const response = await fetch(`${API_BASE}/files/upload/${projectId}`, {
+        const response = await fetch(`${API_BASE}/upload/${projectId}`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${
-              typeof window !== "undefined"
-                ? localStorage.getItem("token")
-                : "mock-token"
-            }`,
+            Authorization: getAuthHeaders().Authorization,
           },
           body: formData,
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to upload ${file.name}`);
-        }
-
         const data = await response.json();
-        if (!data.success) {
+        if (!response.ok || !data.success) {
           throw new Error(data.message || `Failed to upload ${file.name}`);
         }
 
-        setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100));
+        setUploadProgress(((i + 1) / filesToUpload.length) * 100);
       }
 
       setSuccess(`Successfully uploaded ${filesToUpload.length} file(s)`);
       setShowUploadModal(false);
-      fetchFolderContents(currentFolder);
-      fetchCategories();
+      await Promise.all([
+        fetchFolders(),
+        fetchFolderContentsWrapper(currentFolder),
+      ]);
     } catch (error) {
       setError(error.message);
       console.error("Upload error:", error);
@@ -368,62 +269,53 @@ const FileManager = ({ projectData }) => {
 
   const downloadFile = async (fileId, fileName) => {
     try {
-      const response = await fetch(`${API_BASE}/files/${fileId}/download`, {
+      const response = await fetch(`${API_BASE}/${fileId}/download`, {
         headers: getAuthHeaders(),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to get download URL");
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.downloadUrl) {
+        throw new Error(data.message || "Failed to get download URL");
       }
 
-      const data = await response.json();
-      if (data.success && data.downloadUrl) {
-        const link = document.createElement("a");
-        link.href = data.downloadUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const link = document.createElement("a");
+      link.href = data.downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       setError(`Failed to download ${fileName}: ${error.message}`);
+      console.error("Download error:", error);
     }
   };
 
   const deleteFiles = async (fileIds) => {
+    if (!fileIds?.length) return;
     try {
       setLoading(true);
-
-      if (fileIds.length === 1) {
-        const response = await fetch(`${API_BASE}/files/${fileIds[0]}`, {
+      const response = await fetch(
+        fileIds.length === 1
+          ? `${API_BASE}/${fileIds[0]}/delete`
+          : `${API_BASE}/bulk/${projectId}/delete`,
+        {
           method: "DELETE",
           headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to delete file");
+          body: fileIds.length > 1 ? JSON.stringify({ fileIds }) : undefined,
         }
-      } else {
-        const response = await fetch(`${API_BASE}/files/bulk/${projectId}`, {
-          method: "DELETE",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ fileIds }),
-        });
+      );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to delete files");
-        }
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete file(s)");
       }
 
       setSuccess(`Successfully deleted ${fileIds.length} file(s)`);
       setSelectedItems(new Set());
-      fetchFolderContents(currentFolder);
-      fetchCategories();
+      await fetchFolderContentsWrapper(currentFolder);
     } catch (error) {
       setError(error.message);
+      console.error("Delete files error:", error);
     } finally {
       setLoading(false);
     }
@@ -432,20 +324,22 @@ const FileManager = ({ projectData }) => {
   const deleteFolder = async (folderId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/folders/${folderId}`, {
+      const response = await fetch(`${API_BASE}/folders/${folderId}/delete`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete folder");
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete folder");
       }
 
       setSuccess("Folder deleted successfully");
       setSelectedItems(new Set());
-      await fetchFolders();
-      await fetchFolderContents(currentFolder);
+      await Promise.all([
+        fetchFolders(),
+        fetchFolderContentsWrapper(currentFolder),
+      ]);
     } catch (error) {
       setError(error.message);
       console.error("Delete folder error:", error);
@@ -458,27 +352,28 @@ const FileManager = ({ projectData }) => {
     try {
       setLoading(true);
       const endpoint = isFolder
-        ? `${API_BASE}/folders/${itemId}/rename`
-        : `${API_BASE}/files/${itemId}/rename`;
+        ? `${API_BASE}/${itemId}/rename/folders`
+        : `${API_BASE}/${itemId}/rename/files`;
       const response = await fetch(endpoint, {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify({ name: newName }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      const data = await response.json();
+      if (!response.ok || !data.success) {
         throw new Error(
-          errorData.message ||
-            `Failed to rename ${isFolder ? "folder" : "file"}`
+          data.message || `Failed to rename ${isFolder ? "folder" : "file"}`
         );
       }
 
       setSuccess(`Successfully renamed ${isFolder ? "folder" : "file"}`);
       setShowRenameModal(false);
       setRenameItem(null);
-      await fetchFolders();
-      await fetchFolderContents(currentFolder);
+      await Promise.all([
+        fetchFolders(),
+        fetchFolderContentsWrapper(currentFolder),
+      ]);
     } catch (error) {
       setError(error.message);
       console.error("Rename error:", error);
@@ -487,11 +382,28 @@ const FileManager = ({ projectData }) => {
     }
   };
 
-  // Event Handlers------->
+  // Wrapper for fetchFolderContents to update local state
+  const fetchFolderContentsWrapper = async (folderId) => {
+    setLoading(true);
+    try {
+      const contents = await fetchFolderContents(folderId);
+      setCurrentFolderContents(contents || { folders: [], files: [] });
+      setPagination(contents?.pagination || {});
+    } catch (error) {
+      setError(error.message);
+      console.error("Fetch folder contents error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Event Handlers
   const handleFolderClick = (folder) => {
+    if (!folder?._id) return;
     setCurrentFolder(folder._id);
     setCurrentPath([...currentPath, { name: folder.name, id: folder._id }]);
-    fetchFolderContents(folder._id);
+    setCurrentPage(1); // Reset page on folder change
+    fetchFolderContentsWrapper(folder._id);
   };
 
   const handleBreadcrumbClick = (index) => {
@@ -499,7 +411,8 @@ const FileManager = ({ projectData }) => {
     setCurrentPath(newPath);
     const folderId = newPath[index].id;
     setCurrentFolder(folderId);
-    fetchFolderContents(folderId);
+    setCurrentPage(1); // Reset page on navigation
+    fetchFolderContentsWrapper(folderId);
   };
 
   const handleItemSelect = (itemId, event) => {
@@ -521,7 +434,7 @@ const FileManager = ({ projectData }) => {
     setShowRenameModal(true);
   };
 
-  // Drag & Drop Handlers------->
+  // Drag & Drop Handlers
   const handleDragOver = (e) => {
     e.preventDefault();
     setDragOver(true);
@@ -536,48 +449,69 @@ const FileManager = ({ projectData }) => {
     setDragOver(false);
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      uploadFiles(files, currentFolder);
+      await uploadFiles(files, currentFolder);
     }
   };
 
   const handleFileUpload = (files) => {
-    if (files && files.length > 0) {
+    if (files?.length > 0) {
       uploadFiles(Array.from(files), selectedUploadFolder);
     }
   };
 
-  // Debounced search ------>
+  // Debounced search
   const debouncedSearch = useCallback(
     debounce((value) => {
       setSearchTerm(value);
+      setCurrentPage(1); // Reset page on search
     }, 300),
     []
   );
 
-  // Filter files and folders -------->
+  // Filter files and folders
   const filteredFiles = useMemo(() => {
-    return currentFolderContents.files.filter((file) =>
+    return (currentFolderContents.files || []).filter((file) =>
       file.originalName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [currentFolderContents.files, searchTerm]);
 
   const filteredFolders = useMemo(() => {
-    return currentFolderContents.folders.filter((folder) =>
+    return (currentFolderContents.folders || []).filter((folder) =>
       folder.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [currentFolderContents.folders, searchTerm]);
 
-  // Load initial data ------>
+  // Load initial data
   useEffect(() => {
-    fetchFolders();
-    fetchCategories();
-  }, [projectId]);
+    if (projectId) {
+      fetchFolderContentsWrapper(currentFolder);
+    }
+  }, [projectId, currentFolder, currentPage]);
 
+  //FETCH PROJECT METADATA FROM DATABASE USING PROJECT ID
+  const fetchProjectMetaData = async () => {
+    try {
+      const response = projectService.getProject(projectData.id);
+      const data = await response;
+      if (data.success) {
+        return data.data;
+      }
+    } catch (error) {}
+  };
   useEffect(() => {
-    fetchFolderContents(currentFolder);
-  }, [currentFolder, currentPage, selectedCategory]);
+    const loadProject = async () => {
+      try {
+        const data = await fetchProjectMetaData();
+        setFetchProject(data);
+      } catch (err) {
+        setFetchProject(null);
+      }
+    };
 
-  // Auto-hide messages ------>
+    loadProject();
+  }, []);
+
+  // Auto-hide messages
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => setSuccess(null), 5000);
@@ -592,7 +526,7 @@ const FileManager = ({ projectData }) => {
     }
   }, [error]);
 
-  // Components ---------------->
+  // Components
   const NotificationBar = () => {
     if (!success && !error) return null;
 
@@ -629,42 +563,11 @@ const FileManager = ({ projectData }) => {
     );
   };
 
-  const CategoryFilter = () => (
-    <div className="mb-4 flex flex-wrap gap-2">
-      {categories
-        .filter(
-          (category) => category.name && typeof category.name === "string"
-        )
-        .map((category) => (
-          <button
-            key={category.name}
-            onClick={() => {
-              setSelectedCategory(category.name);
-              setCurrentPage(1);
-              fetchFolderContents(currentFolder);
-            }}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              selectedCategory === category.name
-                ? "bg-blue-100 text-blue-800 border border-blue-300"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
-            }`}
-            aria-label={`Filter by ${category.name}`}
-          >
-            {category.name === "all"
-              ? "All Files"
-              : category.name.charAt(0).toUpperCase() +
-                category.name.slice(1)}{" "}
-            ({category.count || 0})
-          </button>
-        ))}
-    </div>
-  );
-
   const Breadcrumb = () => (
     <nav className="flex items-center space-x-2 mb-6" aria-label="Breadcrumb">
       <button
         onClick={() => handleBreadcrumbClick(0)}
-        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-2 cursor-pointer rounded-lg transition-colors text-amber-400"
         aria-label="Go to root folder"
       >
         <Home className="w-4 h-4" />
@@ -675,9 +578,10 @@ const FileManager = ({ projectData }) => {
             const newPath = currentPath.slice(0, -1);
             setCurrentPath(newPath);
             setCurrentFolder(newPath[newPath.length - 1].id);
-            fetchFolderContents(newPath[newPath.length - 1].id);
+            setCurrentPage(1);
+            fetchFolderContentsWrapper(newPath[newPath.length - 1].id);
           }}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-amber-800/40 cursor-pointer rounded-lg transition-colors text-amber-400"
           aria-label="Go back"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -689,8 +593,8 @@ const FileManager = ({ projectData }) => {
             <span
               className={`px-3 py-1 rounded-lg capitalize cursor-pointer ${
                 index === currentPath.length - 1
-                  ? "bg-blue-100 text-blue-700 font-medium"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-amber-800/40 text-amber-200 rounded text-sm border border-amber-600/30"
+                  : "hover:bg-amber-800/40 text-amber-200 text-sm "
               }`}
               onClick={() => handleBreadcrumbClick(index)}
               role="link"
@@ -702,7 +606,7 @@ const FileManager = ({ projectData }) => {
               {path.name === "root" ? "Home" : path.name}
             </span>
             {index < currentPath.length - 1 && (
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <ChevronRight className="w-4 h-4 text-amber-400" />
             )}
           </React.Fragment>
         ))}
@@ -711,11 +615,11 @@ const FileManager = ({ projectData }) => {
   );
 
   const ToolBar = () => (
-    <div className="flex items-center justify-between mb-6 p-4 bg-white rounded-xl shadow-sm border">
+    <div className="flex items-center justify-between mb-6 p-4 bg-amber-800/40 text-xs border border-amber-600/30 rounded-xl shadow-sm">
       <div className="flex items-center space-x-3">
         <button
           onClick={() => setShowNewFolderModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+          className="flex items-center space-x-2 px-4 py-2 text-amber-300 bg-amber-800/70 hover:bg-amber-800/90 rounded-lg cursor-pointer transition-all transform hover:scale-105"
           aria-label="Create new folder"
         >
           <FolderPlus className="w-4 h-4" />
@@ -725,7 +629,7 @@ const FileManager = ({ projectData }) => {
         <button
           onClick={() => setShowUploadModal(true)}
           disabled={isUploading}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 disabled:opacity-50"
+          className="flex items-center space-x-2 px-4 py-2 text-amber-300 bg-amber-800/70 hover:bg-amber-800/90 rounded-lg cursor-pointer transition-all transform hover:scale-105"
           aria-label="Upload files"
         >
           {isUploading ? (
@@ -739,11 +643,10 @@ const FileManager = ({ projectData }) => {
         <button
           onClick={() => {
             fetchFolders();
-            fetchFolderContents(currentFolder);
-            fetchCategories();
+            fetchFolderContentsWrapper(currentFolder);
           }}
           disabled={loading}
-          className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 disabled:opacity-50"
+          className="flex items-center space-x-2 px-4 py-2 text-amber-300 bg-amber-800/70 hover:bg-amber-800/90 rounded-lg cursor-pointer transition-all transform hover:scale-105"
           aria-label="Refresh content"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -753,14 +656,14 @@ const FileManager = ({ projectData }) => {
         <div className="h-6 w-px bg-gray-300 mx-2" />
 
         <div
-          className="flex items-center bg-gray-100 rounded-lg p-1"
+          className="flex items-center bg-amber-700/40 rounded-lg p-1"
           role="group"
           aria-label="View mode"
         >
           <button
             onClick={() => setViewMode("grid")}
             className={`p-2 rounded ${
-              viewMode === "grid" ? "bg-white shadow-sm" : ""
+              viewMode === "grid" ? "bg-amber-400 shadow-sm" : ""
             }`}
             aria-label="Grid view"
           >
@@ -769,7 +672,7 @@ const FileManager = ({ projectData }) => {
           <button
             onClick={() => setViewMode("list")}
             className={`p-2 rounded ${
-              viewMode === "list" ? "bg-white shadow-sm" : ""
+              viewMode === "list" ? "bg-amber-400 shadow-sm" : ""
             }`}
             aria-label="List view"
           >
@@ -780,12 +683,12 @@ const FileManager = ({ projectData }) => {
 
       <div className="flex items-center space-x-3">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-400" />
           <input
             type="text"
             placeholder="Search files and folders..."
             onChange={(e) => debouncedSearch(e.target.value)}
-            className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 text-amber-300"
             aria-label="Search files and folders"
           />
         </div>
@@ -866,9 +769,12 @@ const FileManager = ({ projectData }) => {
 
     const handleContextMenu = (e, item, isFolder) => {
       e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
+        x: Math.min(x, window.innerWidth - 200), // Prevent overflow
+        y: Math.min(y, window.innerHeight - 200),
         item,
         isFolder,
       });
@@ -877,109 +783,113 @@ const FileManager = ({ projectData }) => {
     const closeContextMenu = () => setContextMenu(null);
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {/* Render Folders */}
-        {filteredFolders.map((folder) => (
-          <div
-            key={`folder-${folder._id}`}
-            className={`group relative p-4 rounded-xl border-2 border-dashed border-transparent hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer transform hover:scale-105 ${
-              selectedItems.has(`folder-${folder._id}`)
-                ? "bg-blue-100 border-blue-400"
-                : "bg-white hover:shadow-lg"
-            }`}
-            onClick={() => handleFolderClick(folder)}
-            onContextMenu={(e) => handleContextMenu(e, folder, true)}
-            tabIndex={0}
-            role="button"
-            aria-label={`Folder ${folder.name}`}
-            onKeyPress={(e) => e.key === "Enter" && handleFolderClick(folder)}
-          >
+      <div className="p-6 bg-amber-800/20 rounded-xl shadow-md">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {filteredFolders.map((folder) => (
             <div
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => handleItemSelect(`folder-${folder._id}`, e)}
+              key={`folder-${folder._id}`}
+              className={`group relative p-4 rounded-xl border-2 border-dashed border-transparent hover:border-amber-300 hover:bg-amber-100/50 transition-all cursor-pointer transform hover:scale-105 ${
+                selectedItems.has(`folder-${folder._id}`)
+                  ? "bg-amber-200/50 border-amber-400"
+                  : "bg-white hover:shadow-lg"
+              }`}
+              onClick={() => handleFolderClick(folder)}
+              onContextMenu={(e) => handleContextMenu(e, folder, true)}
+              tabIndex={0}
+              role="button"
+              aria-label={`Folder ${folder.name}`}
+              onKeyPress={(e) => e.key === "Enter" && handleFolderClick(folder)}
             >
-              <input
-                type="checkbox"
-                checked={selectedItems.has(`folder-${folder._id}`)}
-                readOnly
-                aria-label={`Select folder ${folder.name}`}
+              <div
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => handleItemSelect(`folder-${folder._id}`, e)}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedItems.has(`folder-${folder._id}`)}
+                  readOnly
+                  aria-label={`Select folder ${folder.name}`}
+                />
+              </div>
+
+              <div className="flex flex-col items-center space-y-3">
+                <div className="p-3 bg-amber-100/50 rounded-full">
+                  <FolderOpen className="w-8 h-8 text-amber-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-amber-900 truncate w-full">
+                    {folder.name}
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    {formatDate(folder.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {filteredFiles.map((file) => (
+            <div
+              key={`file-${file.id}`}
+              className={`group relative p-4 rounded-xl border-2 border-dashed border-transparent hover:border-amber-300 hover:bg-amber-100/50 transition-all cursor-pointer transform hover:scale-105 ${
+                selectedItems.has(file.id)
+                  ? "bg-amber-200/50 border-amber-400"
+                  : "bg-white hover:shadow-lg"
+              }`}
+              onDoubleClick={() => downloadFile(file.id, file.originalName)}
+              onContextMenu={(e) => handleContextMenu(e, file, false)}
+              tabIndex={0}
+              role="button"
+              aria-label={`File ${file.originalName}`}
+              onKeyPress={(e) =>
+                e.key === "Enter" && downloadFile(file.id, file.originalName)
+              }
+            >
+              <div
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => handleItemSelect(file.id, e)}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedItems.has(file.id)}
+                  readOnly
+                  aria-label={`Select file ${file.originalName}`}
+                />
+              </div>
+
+              <div className="flex flex-col items-center space-y-3">
+                <div className="p-3 bg-amber-100/50 rounded-full">
+                  {getFileIcon(
+                    file.category,
+                    file.originalName,
+                    "w-8 h-8 text-amber-400"
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-amber-900 truncate w-full">
+                    {file.originalName}
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    {formatFileSize(file.fileSize)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {contextMenu && (
+            <div
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+              className="fixed z-50"
+            >
+              <ContextMenu
+                item={contextMenu.item}
+                isFolder={contextMenu.isFolder}
+                onClose={closeContextMenu}
               />
             </div>
-
-            <div className="flex flex-col items-center space-y-3">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <FolderOpen className="w-8 h-8 text-blue-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-gray-900 truncate w-full">
-                  {folder.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatDate(folder.createdAt)}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Render Files */}
-        {filteredFiles.map((file) => (
-          <div
-            key={`file-${file.id}`}
-            className={`group relative p-4 rounded-xl border-2 border-dashed border-transparent hover:border-green-300 hover:bg-green-50 transition-all cursor-pointer transform hover:scale-105 ${
-              selectedItems.has(file.id)
-                ? "bg-green-100 border-green-400"
-                : "bg-white hover:shadow-lg"
-            }`}
-            onDoubleClick={() => downloadFile(file.id, file.originalName)}
-            onContextMenu={(e) => handleContextMenu(e, file, false)}
-            tabIndex={0}
-            role="button"
-            aria-label={`File ${file.originalName}`}
-            onKeyPress={(e) =>
-              e.key === "Enter" && downloadFile(file.id, file.originalName)
-            }
-          >
-            <div
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => handleItemSelect(file.id, e)}
-            >
-              <input
-                type="checkbox"
-                checked={selectedItems.has(file.id)}
-                readOnly
-                aria-label={`Select file ${file.originalName}`}
-              />
-            </div>
-
-            <div className="flex flex-col items-center space-y-3">
-              <div className="p-3 bg-gray-100 rounded-full">
-                {getFileIcon(file.category, file.originalName)}
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-gray-900 truncate w-full">
-                  {file.originalName}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(file.fileSize)}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {contextMenu && (
-          <div
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            className="fixed z-50"
-          >
-            <ContextMenu
-              item={contextMenu.item}
-              isFolder={contextMenu.isFolder}
-              onClose={closeContextMenu}
-            />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -989,9 +899,12 @@ const FileManager = ({ projectData }) => {
 
     const handleContextMenu = (e, item, isFolder) => {
       e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
+        x: Math.min(x, window.innerWidth - 200), // Prevent overflow
+        y: Math.min(y, window.innerHeight - 200),
         item,
         isFolder,
       });
@@ -1000,8 +913,8 @@ const FileManager = ({ projectData }) => {
     const closeContextMenu = () => setContextMenu(null);
 
     return (
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 font-medium text-gray-700">
+      <div className="bg-amber-700/50 rounded-xl shadow-sm overflow-hidden text-amber-400">
+        <div className="grid grid-cols-12 gap-4 p-4 border-b bg-amber-700/20 font-medium text-amber-400">
           <div className="col-span-5">Name</div>
           <div className="col-span-2">Size</div>
           <div className="col-span-2">Modified</div>
@@ -1009,12 +922,11 @@ const FileManager = ({ projectData }) => {
           <div className="col-span-1">Actions</div>
         </div>
 
-        {/* Render Folders */}
         {filteredFolders.map((folder) => (
           <div
             key={`folder-${folder._id}`}
-            className={`grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-              selectedItems.has(`folder-${folder._id}`) ? "bg-blue-50" : ""
+            className={`grid grid-cols-12 gap-4 p-4 border-b hover:bg-amber-700/10 cursor-pointer transition-colors ${
+              selectedItems.has(`folder-${folder._id}`) ? "bg-amber-700/20" : ""
             }`}
             onClick={() => handleFolderClick(folder)}
             onContextMenu={(e) => handleContextMenu(e, folder, true)}
@@ -1030,36 +942,36 @@ const FileManager = ({ projectData }) => {
                 onChange={(e) => handleItemSelect(`folder-${folder._id}`, e)}
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Select folder ${folder.name}`}
+                className="text-amber-400"
               />
-              <FolderOpen className="w-6 h-6 text-blue-500" />
+              <FolderOpen className="w-6 h-6 text-amber-400" />
               <span className="font-medium">{folder.name}</span>
             </div>
-            <div className="col-span-2 text-gray-600">—</div>
-            <div className="col-span-2 text-gray-600">
+            <div className="col-span-2 text-amber-400">—</div>
+            <div className="col-span-2 text-amber-400">
               {formatDate(folder.createdAt)}
             </div>
-            <div className="col-span-2 text-gray-600">Folder</div>
+            <div className="col-span-2 text-amber-400">Folder</div>
             <div className="col-span-1">
               <button
-                className="p-1 hover:bg-gray-200 rounded"
+                className="p-1 hover:bg-amber-700/20 rounded"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleContextMenu(e, folder, true);
                 }}
                 aria-label="Folder actions"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-4 h-4 text-amber-400" />
               </button>
             </div>
           </div>
         ))}
 
-        {/* Render Files */}
         {filteredFiles.map((file) => (
           <div
             key={`file-${file.id}`}
-            className={`grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors ${
-              selectedItems.has(file.id) ? "bg-green-50" : ""
+            className={`grid grid-cols-12 gap-4 p-4 border-b hover:bg-amber-700/10 transition-colors ${
+              selectedItems.has(file.id) ? "bg-amber-700/20" : ""
             }`}
             onDoubleClick={() => downloadFile(file.id, file.originalName)}
             onContextMenu={(e) => handleContextMenu(e, file, false)}
@@ -1075,30 +987,36 @@ const FileManager = ({ projectData }) => {
                 type="checkbox"
                 checked={selectedItems.has(file.id)}
                 onChange={(e) => handleItemSelect(file.id, e)}
+                onClick={(e) => e.stopPropagation()}
                 aria-label={`Select file ${file.originalName}`}
+                className="text-amber-400"
               />
-              {getFileIcon(file.category, file.originalName, "w-6 h-6")}
+              {getFileIcon(
+                file.category,
+                file.originalName,
+                "w-6 h-6 text-amber-400"
+              )}
               <span className="font-medium">{file.originalName}</span>
             </div>
-            <div className="col-span-2 text-gray-600">
+            <div className="col-span-2 text-amber-400">
               {formatFileSize(file.fileSize)}
             </div>
-            <div className="col-span-2 text-gray-600">
+            <div className="col-span-2 text-amber-400">
               {formatDate(file.uploadedAt)}
             </div>
-            <div className="col-span-2 text-gray-600 capitalize">
+            <div className="col-span-2 text-amber-400 capitalize">
               {file.category}
             </div>
             <div className="col-span-1">
               <button
-                className="p-1 hover:bg-gray-200 rounded"
+                className="p-1 hover:bg-amber-700/20 rounded"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleContextMenu(e, file, false);
                 }}
                 aria-label="File actions"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-4 h-4 text-amber-400" />
               </button>
             </div>
           </div>
@@ -1107,7 +1025,7 @@ const FileManager = ({ projectData }) => {
         {contextMenu && (
           <div
             style={{ top: contextMenu.y, left: contextMenu.x }}
-            className="fixed z-50"
+            className="fixed z-50 text-amber-400"
           >
             <ContextMenu
               item={contextMenu.item}
@@ -1125,83 +1043,85 @@ const FileManager = ({ projectData }) => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-          <h3 className="text-xl font-bold mb-4">Upload Files</h3>
+  <div className="bg-amber-700/50 rounded-2xl p-6 w-full max-w-md mx-4 text-amber-400">
+    <h3 className="text-xl font-bold mb-4">Upload Files</h3>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Destination Folder
-            </label>
-            <select
-              value={selectedUploadFolder}
-              onChange={(e) => setSelectedUploadFolder(e.target.value)}
-              disabled={isUploading}
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              aria-label="Select destination folder"
-            >
-              <option value="root">Root</option>
-              {folders.flat.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {"  ".repeat(folder.level)}
-                  {folder.fullPath}
-                </option>
-              ))}
-            </select>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-amber-400 mb-2">
+        Select Destination Folder
+      </label>
+      <select
+        value={selectedUploadFolder}
+        onChange={(e) => setSelectedUploadFolder(e.target.value)}
+        disabled={isUploading}
+        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/20"
+        aria-label="Select destination folder"
+      >
+        <option value="root">Root</option>
+        {folders.map((folder) => (
+          <option key={folder.id} value={folder.id}>
+            {"  ".repeat(folder.level || 0)}
+            {folder.fullPath || folder.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div
+      className="border-2 border-dashed border-amber-400 rounded-xl p-8 text-center hover:border-amber-500 transition-colors cursor-pointer"
+      onClick={() =>
+        !isUploading && document.getElementById("fileInput").click()
+      }
+      role="button"
+      aria-label="Upload files"
+    >
+      {isUploading ? (
+        <div>
+          <Loader className="w-12 h-12 mx-auto mb-4 text-amber-400 animate-spin" />
+          <p className="text-amber-400 mb-2">Uploading files...</p>
+          <div className="w-full bg-amber-700/20 rounded-full h-2">
+            <div
+              className="bg-amber-400 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
           </div>
-
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-            onClick={() => !isUploading && fileInputRef.current?.click()}
-            role="button"
-            aria-label="Upload files"
-          >
-            {isUploading ? (
-              <div>
-                <Loader className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
-                <p className="text-gray-600 mb-2">Uploading files...</p>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  {uploadProgress}% complete
-                </p>
-              </div>
-            ) : (
-              <div>
-                <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-2">
-                  Drag and drop files here, or click to select
-                </p>
-                <p className="text-sm text-gray-400">Supports all file types</p>
-              </div>
-            )}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFileUpload(e.target.files)}
-            disabled={isUploading}
-            aria-label="File input"
-          />
-
-          <div className="flex justify-end space-x-3 mt-6">
-            <button
-              onClick={() => setShowUploadModal(false)}
-              disabled={isUploading}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              aria-label="Cancel upload"
-            >
-              {isUploading ? "Uploading..." : "Cancel"}
-            </button>
-          </div>
+          <p className="text-sm text-amber-400 mt-2">
+            {uploadProgress}% complete
+          </p>
         </div>
-      </div>
+      ) : (
+        <div>
+          <Upload className="w-12 h-12 mx-auto mb-4 text-amber-400" />
+          <p className="text-amber-400 mb-2">
+            Drag and drop files here, or click to select
+          </p>
+          <p className="text-sm text-amber-400">Supports all file types</p>
+        </div>
+      )}
+    </div>
+
+    <input
+      id="fileInput"
+      type="file"
+      multiple
+      className="hidden"
+      onChange={(e) => handleFileUpload(e.target.files)}
+      disabled={isUploading}
+      aria-label="File input"
+    />
+
+    <div className="flex justify-end space-x-3 mt-6">
+      <button
+        onClick={() => setShowUploadModal(false)}
+        disabled={isUploading}
+        className="px-4 py-2 text-amber-400 hover:bg-amber-700/20 rounded-lg transition-colors disabled:opacity-50"
+        aria-label="Cancel upload"
+      >
+        {isUploading ? "Uploading..." : "Cancel"}
+      </button>
+    </div>
+  </div>
+</div>
     );
   };
 
@@ -1224,67 +1144,67 @@ const FileManager = ({ projectData }) => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-          <h3 className="text-xl font-bold mb-4">Create New Folder</h3>
+  <div className="bg-amber-700/50 rounded-2xl p-6 w-full max-w-md mx-4 text-amber-400">
+    <h3 className="text-xl font-bold mb-4">Create New Folder</h3>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Folder Name
-            </label>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Enter folder name"
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              onKeyPress={(e) => e.key === "Enter" && handleCreateFolder()}
-              aria-label="Folder name"
-            />
-          </div>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-amber-400 mb-2">
+        Folder Name
+      </label>
+      <input
+        type="text"
+        value={newFolderName}
+        onChange={(e) => setNewFolderName(e.target.value)}
+        placeholder="Enter folder name"
+        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/20"
+        onKeyPress={(e) => e.key === "Enter" && handleCreateFolder()}
+        aria-label="Folder name"
+      />
+    </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Parent Folder
-            </label>
-            <select
-              value={selectedParentFolder}
-              onChange={(e) => setSelectedParentFolder(e.target.value)}
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              aria-label="Select parent folder"
-            >
-              <option value="root">Root</option>
-              {folders.flat.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {"  ".repeat(folder.level)}
-                  {folder.fullPath}
-                </option>
-              ))}
-            </select>
-          </div>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-amber-400 mb-2">
+        Parent Folder
+      </label>
+      <select
+        value={selectedParentFolder}
+        onChange={(e) => setSelectedParentFolder(e.target.value)}
+        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/20"
+        aria-label="Select parent folder"
+      >
+        <option value="root">Root</option>
+        {folders.map((folder) => (
+          <option key={folder.id} value={folder.id}>
+            {"  ".repeat(folder.level || 0)}
+            {folder.fullPath || folder.name}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => {
-                setShowNewFolderModal(false);
-                setNewFolderName("");
-                setSelectedParentFolder(currentFolder);
-              }}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Cancel"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateFolder}
-              disabled={!newFolderName.trim() || loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              aria-label="Create folder"
-            >
-              {loading ? "Creating..." : "Create Folder"}
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="flex justify-end space-x-3">
+      <button
+        onClick={() => {
+          setShowNewFolderModal(false);
+          setNewFolderName("");
+          setSelectedParentFolder(currentFolder);
+        }}
+        className="px-4 py-2 text-amber-400 hover:bg-amber-700/20 rounded-lg transition-colors"
+        aria-label="Cancel"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={handleCreateFolder}
+        disabled={!newFolderName.trim() || loading}
+        className="px-4 py-2 bg-amber-400 text-amber-900 rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50"
+        aria-label="Create folder"
+      >
+        {loading ? "Creating..." : "Create Folder"}
+      </button>
+    </div>
+  </div>
+</div>
     );
   };
 
@@ -1439,7 +1359,7 @@ const FileManager = ({ projectData }) => {
           className="text-gray-400 hover:text-gray-600 ml-2"
           aria-label="Clear selection"
         >
-          ×
+          <X className="w-4 h-4" />
         </button>
       </div>
     );
@@ -1447,24 +1367,24 @@ const FileManager = ({ projectData }) => {
 
   const LoadingSpinner = () => (
     <div className="flex items-center justify-center py-12">
-      <Loader className="w-8 h-8 animate-spin text-blue-500" />
-      <span className="ml-2 text-gray-600">Loading...</span>
+      <Loader className="w-8 h-8 animate-spin text-amber-400" />
+      <span className="ml-2 text-amber-400">Loading...</span>
     </div>
   );
 
   const EmptyState = () => (
     <div className="text-center py-12">
       <div className="flex justify-center mb-4">
-        {currentFolder === "root" ? (
-          <Folder className="w-16 h-16 text-gray-300" />
+        {searchTerm ? (
+          <File className="w-16 h-16 text-amber-400" />
         ) : (
-          <File className="w-16 h-16 text-gray-300" />
+          <Folder className="w-16 h-16 text-amber-400" />
         )}
       </div>
-      <h3 className="text-xl font-medium text-gray-900 mb-2">
+      <h3 className="text-xl font-medium text-amber-400 mb-2">
         {searchTerm ? "No items found" : "This folder is empty"}
       </h3>
-      <p className="text-gray-500 mb-4">
+      <p className="text-amber-400 mb-4">
         {searchTerm
           ? "Try adjusting your search terms"
           : "Upload some files or create folders to get started"}
@@ -1473,14 +1393,14 @@ const FileManager = ({ projectData }) => {
         <div className="flex justify-center space-x-3">
           <button
             onClick={() => setShowNewFolderModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-amber-700/40 text-amber-400 rounded-lg hover:bg-blue-700 transition-colors"
             aria-label="Create folder"
           >
             Create Folder
           </button>
           <button
             onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="px-4 py-2 bg-amber-700/40 text-amber-400 rounded-lg hover:bg-amber-700/60 transition-colors"
             aria-label="Upload files"
           >
             Upload Files
@@ -1517,7 +1437,7 @@ const FileManager = ({ projectData }) => {
         aria-label="Pagination"
       >
         <button
-          onClick={() => setCurrentPage(currentPage - 1)}
+          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
           disabled={!pagination.hasPrev || loading}
           className="px-3 py-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
           aria-label="Previous page"
@@ -1542,7 +1462,7 @@ const FileManager = ({ projectData }) => {
         ))}
 
         <button
-          onClick={() => setCurrentPage(currentPage + 1)}
+          onClick={() => setCurrentPage((prev) => prev + 1)}
           disabled={!pagination.hasNext || loading}
           className="px-3 py-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
           aria-label="Next page"
@@ -1561,7 +1481,7 @@ const FileManager = ({ projectData }) => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6"
+      className="min-h-screen bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg p-6 m-5"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -1581,16 +1501,20 @@ const FileManager = ({ projectData }) => {
 
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Project File Manager
+          <h1 className=" font-bold text-amber-100 text-2xl mb-2 text-center">
+            Project&apos;s File Manager
           </h1>
-          <p className="text-gray-600">
+          <p className="text-amber-200/80 text-center">
             Organize, upload, and manage your project files with ease
           </p>
-          <p>Project ID:{projectData?.id}</p>
+          <p className="absolute top-4 text-amber-100">
+            <strong>Project ID : </strong> {projectData?.id}
+          </p>
+          <p className="absolute top-10 text-amber-100">
+            <strong>Project Name : </strong> {fetchProject?.name}
+          </p>
         </div>
 
-        <CategoryFilter />
         <Breadcrumb />
         <ToolBar />
 

@@ -8,11 +8,9 @@ const router = express.Router();
 const {
   FileUpload,
   GetFiles_for_Project,
-  GetCategories,
   GetDownloadURL,
   DeleteFile,
-  UpdateFiles,
-  GetFiles,
+  GetFileContent,
   GetFoldersNew,
   GetFolderContent,
   CreateFolderNew,
@@ -39,22 +37,22 @@ const upload = multer({
 
 router.use(authMiddleware);
 
-// Folder Routes
-router.post("/folders/create", CreateFolderNew);
-router.get("/folders/project/:projectId", GetFoldersNew);//<----
-router.get("/folders/:folderId/contents", GetFolderContent);
-router.delete("/folders/:folderId", DeleteFolder);
-router.patch("/folders/:folderId/rename", RenameFolder);
+// Api Endpoint for FileManager.js
+router.post("/folders/create", CreateFolderNew);//createFolder
+router.post("/upload/:projectId", upload.single("file"), FileUpload);//uploadFiles
+router.get("/:fileId/download", GetDownloadURL);//downloadFile
+router.delete("/folders/:folderId/delete", DeleteFolder);//deleteFolder
+router.delete("/:fileId/delete", DeleteFile);//deleteFiles
+router.delete("/bulk/:projectId/delete", DeleteFile); // deleteFiles Bulk
+router.patch("/:folderId/rename/folders", RenameFolder);//renameItemApi Folder
+router.patch("/:fileId/rename/files", RenameFile);//renameItemApi File
 
-// File Routes
-router.get("/files/project/:projectId", GetFiles_for_Project);
-router.get("/files/project/:projectId/categories", GetCategories);
-router.get("/files/:fileId/download", GetDownloadURL);
-router.get("/files/:fileId", GetFiles);
-router.post("/files/upload/:projectId", upload.single("file"), FileUpload);
-router.patch("/files/:fileId", UpdateFiles);
-router.patch("/files/:fileId/rename", RenameFile);
-router.delete("/files/:fileId", DeleteFile);
-router.delete("/files/bulk/:projectId", DeleteFile); // For bulk deletion
+// Api Endpoint for FileManagerContext.js
+router.get("/folders/project/:projectId", GetFoldersNew);//fetchFolders
+router.get("/folders/:folderId/contents", GetFolderContent);//fetchFolderContents (1'st Api Call) and  fetchAllFiles (1'st Api Call)
+router.get("/project/:projectId", GetFiles_for_Project);//fetchFolderContents (2'nd Api Call) and fetchAllFiles (2'nd Api Call)
+
+//Api Endpoint for CodeEditor.js
+router.get("/:fileId/content", GetFileContent);//<----------------------------------------------FIX
 
 module.exports = router;

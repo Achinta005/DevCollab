@@ -80,6 +80,7 @@ exports.FileUpload = async (req, res) => {
       s3Bucket: process.env.S3_BUCKET_NAME,
       project: projectId,
       uploadedBy: userId,
+      lastModifiedBy:userId,
       description: description || "",
       tags: tags
         ? tags
@@ -203,59 +204,6 @@ exports.GetFiles_for_Project = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in GetFiles_for_Project:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// Get categories
-exports.GetCategories = async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    const userId = req.user?.id || req.user?._id; // Fixed: Added optional chaining
-
-    // Check if user is authenticated
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Authentication required" });
-    }
-
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
-    }
-
-    const canRead =
-      project.owner.toString() === userId.toString() ||
-      project.collaborators.some(
-        (collab) =>
-          collab.user.toString() === userId.toString() &&
-          collab.permissions.includes("read")
-      );
-    if (!canRead) {
-      return res.status(403).json({ success: false, message: "Permission denied" });
-    }
-
-    const categories = await ProjectFile.aggregate([
-      { $match: { project: new mongoose.Types.ObjectId(projectId), isActive: true } },
-      {
-        $group: {
-          _id: "$fileType",
-          count: { $sum: 1 },
-          totalSize: { $sum: "$fileSize" },
-        },
-      },
-      {
-        $project: {
-          name: "$_id",
-          count: 1,
-          totalSize: 1,
-          _id: 0,
-        },
-      },
-    ]);
-
-    res.status(200).json({ success: true, categories });
-  } catch (error) {
-    console.error("Error in GetCategories:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -508,13 +456,14 @@ exports.GetDownloadURL = async (req, res) => {
     }
 
     // Generate presigned URL for download
-    const downloadUrl = await s3Service.generatePresignedUrl(
+    const downloadUrl = await s3Service.getDownloadUrl(
       file.s3Key,
-      "getObject",
-      3600, // 1 hour expiry
-      {
-        "Content-Disposition": `attachment; filename="${file.originalName}"`,
-      }
+      // "getObject",
+      // 3600, // 1 hour expiry
+      // {
+      //   "Content-Disposition": `attachment; filename="${file.originalName}"`,
+      // }
+      3600
     );
 
     // Update download count
@@ -852,161 +801,149 @@ exports.RenameFolder = async (req, res) => {
   }
 };
 
-exports.UpdateFiles = async (req, res) => {
+const AWS = require('aws-sdk');
+
+// Configure AWS SDK (ensure credentials are set via environment variables or IAM roles)
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
+// New or modified endpoint: GET /files/:fileId/content
+exports.GetFileContent = async (req, res) => {
   try {
+    console.log(`Fetch GetFileContent Hit on /files/:fileId/content for fileId: ${req.params.fileId}`);
     const { fileId } = req.params;
-    const { description, tags } = req.body;
-    const userId = req.user?.id || req.user?._id; // Fixed: Added optional chaining
+    const userId = req.user?.id || req.user?._id;
 
-    // Check if user is authenticated
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Authentication required" });
+      return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    // Find file with project info
-    const file = await ProjectFile.findById(fileId).populate("project");
-
-    if (!file || !file.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found",
-      });
-    }
-
-    // Check edit permission
-    const project = file.project;
-    const canEdit =
-      project.owner.toString() === userId.toString() ||
-      file.uploadedBy.toString() === userId.toString() ||
-      project.collaborators.some(
-        (collab) =>
-          collab.user.toString() === userId.toString() &&
-          collab.permissions.includes("edit_files")
-      );
-
-    if (!canEdit) {
-      return res.status(403).json({
-        success: false,
-        message: "You do not have permission to edit this file",
-      });
-    }
-
-    // Update file metadata
-    if (description !== undefined) {
-      file.description = description;
-    }
-
-    if (tags !== undefined) {
-      file.tags = Array.isArray(tags)
-        ? tags
-        : tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter((tag) => tag);
-    }
-
-    file.updatedAt = new Date();
-    file.lastModifiedBy = userId;
-    await file.save();
-
-    res.json({
-      success: true,
-      message: "File updated successfully",
-      file: {
-        ...file.getPublicData(),
-        readableSize: formatFileSize(file.fileSize),
-      },
-    });
-  } catch (error) {
-    console.error("Update file error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update file",
-    });
-  }
-};
-
-exports.GetFiles = async (req, res) => {
-  try {
-    const { fileId } = req.params;
-    const userId = req.user?.id || req.user?._id; // Fixed: Added optional chaining
-
-    // Check if user is authenticated
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Authentication required" });
-    }
-
-    // Find file with populated data
+    // Find file
     const file = await ProjectFile.findById(fileId)
-      .populate("project", "name owner collaborators")
-      .populate("uploadedBy", "username firstname lastname fullName")
-      .populate("lastModifiedBy", "username firstname lastname fullName");
+      .populate('project', 'name owner collaborators')
+      .populate('uploadedBy', 'username firstname lastname fullName')
+      .populate('lastModifiedBy', 'username firstname lastname fullName');
 
     if (!file || !file.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found",
-      });
+      console.log(`File not found or inactive: ${fileId}`);
+      return res.status(404).json({ success: false, message: 'File not found or inactive' });
     }
 
-    // Check access permission
+    // Log file details for debugging
+    console.log('File details:', {
+      id: file._id,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      fileType: file.fileType,
+      s3Key: file.s3Key,
+      s3Bucket: file.s3Bucket,
+      lastModifiedBy: file.lastModifiedBy ? file.lastModifiedBy._id : 'Not set',
+    });
+
+    // Check access permissions
     const project = file.project;
     const hasAccess =
       project.owner.toString() === userId.toString() ||
-      project.collaborators.some(
-        (collab) => collab.user.toString() === userId.toString()
-      );
+      project.collaborators.some((collab) => collab.user.toString() === userId.toString());
 
     if (!hasAccess) {
-      return res.status(403).json({
+      console.log(`Access denied for user ${userId} on file ${fileId}`);
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Define supported MIME types
+    const textMimeTypes = [
+      'text/plain',
+      'text/javascript',
+      'application/json',
+      'text/html',
+      'text/css',
+      'application/x-python-code',
+    ];
+
+    // Fallback to extension-based MIME type
+    const fileExtension = file.fileType.toLowerCase();
+    const extensionToMime = {
+      '.html': 'text/html',
+      '.js': 'text/javascript',
+      '.json': 'application/json',
+      '.css': 'text/css',
+      '.txt': 'text/plain',
+      '.py': 'application/x-python-code',
+      '.pdf': 'application/pdf',
+    };
+    const effectiveMimeType = textMimeTypes.includes(file.mimeType)
+      ? file.mimeType
+      : extensionToMime[fileExtension] || file.mimeType;
+
+    if (!textMimeTypes.includes(effectiveMimeType) && effectiveMimeType !== 'application/pdf') {
+      console.log(`Unsupported file type: ${effectiveMimeType} for file ${file.originalName}`);
+      return res.status(400).json({
         success: false,
-        message: "Access denied",
+        message: `File type (${effectiveMimeType}) not supported for editing in code editor`,
       });
     }
 
-    // Format response
-    const fileData = {
-      ...file.getPublicData(),
-      readableSize: formatFileSize(file.fileSize),
-      project: {
-        id: project._id,
-        name: project.name,
-      },
-      uploadedBy: file.uploadedBy
-        ? {
-            id: file.uploadedBy._id,
-            username: file.uploadedBy.username,
-            fullName:
-              file.uploadedBy.fullName ||
-              `${file.uploadedBy.firstname} ${
-                file.uploadedBy.lastname || ""
-              }`.trim(),
-          }
-        : null,
-      lastModifiedBy: file.lastModifiedBy
-        ? {
-            id: file.lastModifiedBy._id,
-            username: file.lastModifiedBy.username,
-            fullName:
-              file.lastModifiedBy.fullName ||
-              `${file.lastModifiedBy.firstname} ${
-                file.lastModifiedBy.lastname || ""
-              }`.trim(),
-          }
-        : null,
-      downloadCount: file.downloadCount || 0,
-      lastDownloadedAt: file.lastDownloadedAt,
+    // For PDFs, return a presigned URL
+    if (effectiveMimeType === 'application/pdf') {
+      const downloadUrl = await s3.generatePresignedUrl(
+        file.s3Bucket,
+        file.s3Key,
+        'getObject',
+        3600, // 1 hour expiry
+        {
+          'Content-Disposition': `inline; filename="${file.originalName}"`,
+        }
+      );
+      console.log(`Generated presigned URL for PDF: ${file.originalName}`);
+      return res.json({
+        success: true,
+        downloadUrl,
+        fileType: file.fileType,
+      });
+    }
+
+    // Fetch file content from S3 for text files
+    const s3Params = {
+      Bucket: file.s3Bucket,
+      Key: file.s3Key,
     };
 
-    res.json({
-      success: true,
-      file: fileData,
-    });
+    try {
+      const s3Object = await s3.getObject(s3Params).promise();
+      let content;
+      try {
+        content = s3Object.Body.toString('utf-8');
+      } catch (decodeError) {
+        console.error(`Failed to decode file content as UTF-8 for ${file.originalName}:`, decodeError);
+        return res.status(500).json({
+          success: false,
+          message: `Failed to decode file content: ${decodeError.message}`,
+        });
+      }
+
+      console.log(`Successfully fetched content for file: ${file.originalName}`);
+      res.json({
+        success: true,
+        content,
+        fileType: file.fileType,
+      });
+    } catch (s3Error) {
+      console.error(`S3 fetch error for file ${file.originalName}:`, s3Error);
+      return res.status(500).json({
+        success: false,
+        message: `Failed to fetch file content from S3: ${s3Error.message}`,
+        errorCode: s3Error.code,
+      });
+    }
   } catch (error) {
-    console.error("Get file details error:", error);
+    console.error(`Get file content error for fileId ${req.params.fileId}:`, error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch file details",
+      message: `Failed to fetch file content: ${error.message}`,
     });
   }
 };

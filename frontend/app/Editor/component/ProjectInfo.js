@@ -274,7 +274,6 @@ const ProjectInfo = ({ projectData }) => {
         collaboratorId
       );
       const data = await response;
-
     } catch (error) {
       console.error("Error removing collaborator:", error);
 
@@ -376,7 +375,7 @@ const ProjectInfo = ({ projectData }) => {
   // useEffect(() => {
   //   console.log( console.log(fetchProject))
   // }, [fetchProject])
-  
+
   return (
     <div className="p-6 space-y-6">
       {/* Project Overview */}
@@ -670,19 +669,17 @@ const ProjectInfo = ({ projectData }) => {
       </form>
 
       {/* Collaborators Section */}
-      <div className="bg-white/95 backdrop-blur-sm rounded-lg border border-gray-200 shadow-lg">
+      <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg text-amber-400">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div className="p-2 bg-amber-700/20 rounded-lg">
+                <Users className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Collaborators
-                </h2>
-                <p className="text-sm text-gray-600">
+                <h2 className="text-xl font semigroup-bold">Collaborators</h2>
+                <p className="text-sm">
                   {collaborators.length}{" "}
                   {collaborators.length === 1
                     ? "collaborator"
@@ -694,7 +691,7 @@ const ProjectInfo = ({ projectData }) => {
             {canManageCollaborators(currentUserRole) && (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-amber-900 rounded-lg hover:bg-amber-500 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Collaborator
@@ -704,31 +701,32 @@ const ProjectInfo = ({ projectData }) => {
 
           {/* Add Collaborator Form */}
           {showAddForm && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+            <div className="bg-amber-700/20 rounded-lg p-4 mb-6 border border-amber-600/30">
               <div className="flex gap-3">
                 <input
                   type="email"
                   placeholder="Enter email address"
                   value={newCollaboratorEmail}
                   onChange={(e) => setNewCollaboratorEmail(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-amber-600/30 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/10"
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
                       handleAddCollaboratorAdvanced();
                     }
                   }}
+                  aria-label="Enter email address"
                   disabled={isAddingCollaborator}
                 />
                 <button
                   onClick={handleAddCollaboratorAdvanced}
                   disabled={isAddingCollaborator}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-amber-400 text-amber-900 rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAddingCollaborator ? "Sending..." : "Send Invite"}
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="px-3 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+                  className="px-3 py-2 text-amber-400 hover:text-amber-300 transition-colors"
                   disabled={isAddingCollaborator}
                 >
                   <X className="w-5 h-5" />
@@ -737,10 +735,10 @@ const ProjectInfo = ({ projectData }) => {
 
               {/* Error/Success Messages */}
               {error && (
-                <div className="mt-3 text-red-600 text-sm">{error}</div>
+                <div className="mt-3 text-red-400 text-sm">{error}</div>
               )}
               {success && (
-                <div className="mt-3 text-green-600 text-sm">{success}</div>
+                <div className="mt-3 text-green-400 text-sm">{success}</div>
               )}
             </div>
           )}
@@ -748,8 +746,8 @@ const ProjectInfo = ({ projectData }) => {
           {/* Collaborators List */}
           <div className="space-y-4">
             {collaborators.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-amber-400">
+                <Users className="w-12 h-12 mx-auto mb-3 text-amber-400/50" />
                 <p>No collaborators yet</p>
                 <p className="text-sm">
                   Add collaborators to start working together
@@ -759,7 +757,7 @@ const ProjectInfo = ({ projectData }) => {
               collaborators.map((collaborator) => (
                 <div
                   key={collaborator._id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between p-4 bg-amber-700/20 rounded-lg border border-amber-600/30 hover:bg-amber-700/30 transition-colors"
                 >
                   {/* User Info */}
                   <div className="flex items-center gap-4 flex-1">
@@ -770,7 +768,7 @@ const ProjectInfo = ({ projectData }) => {
                           "/default-avatar.png"
                         }
                         alt={`${collaborator.user.fullName}'s avatar`}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                        className="w-12 h-12 rounded-full object-cover border-2 border-amber-600/30"
                         onError={(e) => {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                             collaborator.user.fullName
@@ -778,28 +776,26 @@ const ProjectInfo = ({ projectData }) => {
                         }}
                       />
                       {collaborator.role === "owner" && (
-                        <div className="absolute -top-1 -right-1 bg-purple-600 rounded-full p-1">
-                          <Crown className="w-3 h-3 text-white" />
+                        <div className="absolute -top-1 -right-1 bg-amber-400 rounded-full p-1">
+                          <Crown className="w-3 h-3 text-amber-900" />
                         </div>
                       )}
                     </div>
 
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-amber-400">
                           {collaborator.user.fullName}
                         </h3>
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(
-                            collaborator.role
-                          )}`}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-amber-400 text-amber-400`}
                         >
                           {getRoleIcon(collaborator.role)}
                           {collaborator.role}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-4 text-sm text-amber-400">
                         <span>@{collaborator.user.username}</span>
                         <span>Joined {formatDate(collaborator.joinedAt)}</span>
                       </div>
@@ -812,9 +808,7 @@ const ProjectInfo = ({ projectData }) => {
                               (permission, index) => (
                                 <span
                                   key={index}
-                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium border ${getPermissionBadgeColor(
-                                    permission
-                                  )}`}
+                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium border border-amber-400 text-amber-400`}
                                 >
                                   {permission.replace(/_/g, " ")}
                                 </span>
@@ -839,7 +833,7 @@ const ProjectInfo = ({ projectData }) => {
                               e.target.value
                             )
                           }
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="px-3 py-1 text-sm border border-amber-600/30 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/10"
                         >
                           <option value="viewer">Viewer</option>
                           <option value="commenter">Commenter</option>
@@ -851,7 +845,7 @@ const ProjectInfo = ({ projectData }) => {
                           onClick={() =>
                             handleRemoveCollaboratorOptimistic(collaborator._id)
                           }
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-amber-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                           title="Remove collaborator"
                         >
                           <X className="w-4 h-4" />
@@ -861,7 +855,7 @@ const ProjectInfo = ({ projectData }) => {
 
                   {/* Current User Indicator */}
                   {collaborator.user._id === currentUserId && (
-                    <span className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full">
+                    <span className="px-3 py-1 text-xs font-medium text-amber-900 bg-amber-400 border border-amber-600/30 rounded-full">
                       You
                     </span>
                   )}
@@ -872,16 +866,14 @@ const ProjectInfo = ({ projectData }) => {
 
           {/* Permissions Legend */}
           {collaborators.length > 0 && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+            <div className="mt-6 p-4 bg-amber-700/20 rounded-lg border border-amber-600/30">
+              <h4 className="text-sm font-semibold text-amber-400 mb-2">
                 Permission Types:
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-600">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-amber-400">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded border ${getPermissionBadgeColor(
-                      "read"
-                    )}`}
+                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
                   >
                     read
                   </span>
@@ -889,9 +881,7 @@ const ProjectInfo = ({ projectData }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded border ${getPermissionBadgeColor(
-                      "write"
-                    )}`}
+                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
                   >
                     write
                   </span>
@@ -899,9 +889,7 @@ const ProjectInfo = ({ projectData }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded border ${getPermissionBadgeColor(
-                      "delete"
-                    )}`}
+                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
                   >
                     delete
                   </span>
@@ -909,9 +897,7 @@ const ProjectInfo = ({ projectData }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded border ${getPermissionBadgeColor(
-                      "manage_collaborators"
-                    )}`}
+                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
                   >
                     manage collaborators
                   </span>
@@ -919,9 +905,7 @@ const ProjectInfo = ({ projectData }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded border ${getPermissionBadgeColor(
-                      "manage_settings"
-                    )}`}
+                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
                   >
                     manage settings
                   </span>

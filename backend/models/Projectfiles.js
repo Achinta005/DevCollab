@@ -13,6 +13,7 @@ const ProjectFileSchema = new mongoose.Schema({
   project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: "ProjectFolder", default: null }, // folder reference
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  lastModifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Added field
 
   description: { type: String, maxlength: 500 },
   tags: [{ type: String, maxlength: 50 }],
@@ -22,7 +23,7 @@ const ProjectFileSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   isPublic: { type: Boolean, default: false },
 
-  processingStatus: { type: String, enum: ["pending","completed","failed"], default: "completed" },
+  processingStatus: { type: String, enum: ["pending", "completed", "failed"], default: "completed" },
 }, { timestamps: true });
 
 // Indexes
@@ -45,7 +46,8 @@ ProjectFileSchema.methods.getPublicData = function() {
     folder: this.folder,
     downloadCount: this.downloadCount,
     uploadedAt: this.createdAt,
-    uploadedBy: this.uploadedBy
+    uploadedBy: this.uploadedBy,
+    lastModifiedBy: this.lastModifiedBy // Added to public data
   };
 };
 
@@ -56,14 +58,14 @@ ProjectFileSchema.methods.recordDownload = async function() {
 };
 
 ProjectFileSchema.methods.isImage = function() {
-  return [".jpg",".jpeg",".png",".gif",".svg",".webp",".bmp"].includes(this.fileType.toLowerCase());
+  return [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".bmp"].includes(this.fileType.toLowerCase());
 };
 
 ProjectFileSchema.statics.getReadableFileSize = function(bytes) {
-  const sizes = ["Bytes","KB","MB","GB","TB"];
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   if (!bytes) return "0 Bytes";
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round((bytes / Math.pow(1024,i))*100)/100 + " " + sizes[i];
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
 };
 
 // Virtual for download URL
