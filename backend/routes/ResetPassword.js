@@ -1,9 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {getEmail}=require('../controller/getEmail')
-const {sendOTP}=require('../controller/sendOTP');
-const {verifyOTP}=require("../controller/verifyOTP")
-const {resetPassword}=require('../controller/resetPassword');
+const {getEmail,sendOTP,verifyOTP,resetPassword}=require('../controller/ResetPasswordController')
 
 router.post('/Email',getEmail);
 router.post('/send-otp',sendOTP);

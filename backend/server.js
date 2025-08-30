@@ -1,15 +1,13 @@
 const express = require("express");
-const app = express();
-const port = process.env.PORT || 3001;
 const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
-const authRoutes = require("./routes/auth");
-const resetPassword = require("./routes/ResetPassword");
-const getProfilePicture = require("./routes/getProfilePic");
-const Profile_picture_modification = require("./routes/Profile-pic");
 const connectDB = require("./config/db");
 
+const app = express();
+const port = process.env.PORT || 3001;
+
+// Middleware
 app.use(
   cors({
     origin: [
@@ -17,7 +15,7 @@ app.use(
       "https://dev-collab-git-main-achinta-hazras-projects.vercel.app",
       "https://dev-collab-ten.vercel.app",
     ],
-    methods: ["GET", "POST", "OPTIONS", "PUT"],
+    methods: ["GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"],
     credentials: true,
   })
 );
@@ -29,13 +27,14 @@ app.use((req, res, next) => {
   express.json({ limit: "10mb" })(req, res, next);
 });
 
-app.use((req, res, next) => { 
+app.use((req, res, next) => {
   if (req.originalUrl === "/api/image/upload") {
     return next();
   }
   express.urlencoded({ extended: true, limit: "10mb" })(req, res, next);
 });
 
+// Routes
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to DevCollab!" });
 });
@@ -49,15 +48,25 @@ app.get("/connect", (req, res) => {
   });
 });
 
-//Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/reset", resetPassword);
-app.use("/api/get", getProfilePicture);
-app.use("/api/image", Profile_picture_modification);
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/reset", require("./routes/ResetPassword"));
+app.use("/api/get", require("./routes/getProfilePic"));
+app.use("/api/image", require("./routes/Profile-pic"));
 app.use("/api/projects", require("./routes/projectRoutes"));
+app.use("/files", require("./routes/projectFiles")); // Ensure this points to projectfiles.js
 
-connectDB();
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Server error:", err);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
 
-app.listen(port, () => {
-  console.log(`Backend is running on port ${port}`);
+// Connect to MongoDB and start server
+connectDB().then(() => {
+  app.listen(port, () => {
+    console.log(`Backend is running on port ${port}`);
+  });
+}).catch((err) => {
+  console.error("Failed to connect to MongoDB:", err);
+  process.exit(1);
 });

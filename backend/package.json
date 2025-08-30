@@ -16,6 +16,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.878.0",
+    "@aws-sdk/s3-request-presigner": "^3.878.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
@@ -34,6 +36,7 @@
     "redis": "^5.8.0",
     "socket.io": "^4.8.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "uuid": "^11.1.0"
   }
 }

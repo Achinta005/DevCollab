@@ -1,9 +1,5 @@
 const express = require('express');
-const {upload_profile_picture_to_cloudinary} = require('../controller/Profile-pic-controller/Upload-profile-picture-to-Cloudinary')
-const{get_profile_pic_url}=require('../controller/Profile-pic-controller/get-profile-pic-url')
-const {get_user_profile_data}=require('../controller/get-user-profile-data')
-const {update_user_profile_data}=require('../controller/Profile-pic-controller/update-user-profile-data');
-const {multer_error_handeller}=require('../controller/Profile-pic-controller/multer-error-handeller')
+const {upload_profile_picture_to_cloudinary,get_profile_pic_url,get_user_profile_data,update_user_profile_data,multer_error_handeller} = require('../controller/ProfilePictureController')
 
 
 const router = express.Router();

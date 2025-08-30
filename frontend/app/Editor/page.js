@@ -1,7 +1,7 @@
 "use client"; // <-- important for client-side hooks like useSearchParams
 
 import React, { Suspense } from "react";
-import UserProfile from "./userinfo";
+import UserProfile from "./EditorWholePage";
 
 const Page = () => {
   return (

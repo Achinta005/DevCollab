@@ -4,6 +4,7 @@ import { getUserFromToken } from "../lib/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProjectInfo from "./component/ProjectInfo";
 import CodeEditor from "./component/CodeEditor";
+import FileManager from "./component/FileManager";
 
 const UserProfile = () => {
   const [mounted, setMounted] = useState(false);
@@ -67,8 +68,10 @@ const UserProfile = () => {
       </div>
 
       {/* Project Components */}
+      
       <ProjectInfo projectData={projectData} />
       <CodeEditor projectData={projectData} />
+      <FileManager projectData={projectData}/>
     </div>
   );
 };
