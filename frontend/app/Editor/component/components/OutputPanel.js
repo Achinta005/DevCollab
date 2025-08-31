@@ -135,7 +135,7 @@ function OutputPanel({
                   <div className="text-center py-16">
                     <FileText className="w-12 h-12 text-slate-500 mx-auto mb-3" />
                     <div className="text-slate-400 text-sm italic">
-                      No output yet. Click "Run" to execute your code.
+                      No output yet. Click &quot;Run&quot; to execute your code.
                     </div>
                     <div className="text-slate-500 text-xs mt-2">
                       Output will appear here after execution
