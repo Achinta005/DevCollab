@@ -1,15 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Label } from "../../components/ui/label";
 import { cn } from "../lib/util";
 import { Input } from "../../components/ui/input";
 import { getAuthToken } from "../lib/auth";
-import { useRouter } from "next/navigation";
 import { projectService } from "../../services/projectService";
 
-const Create_project = () => {
-  const router = useRouter();
+const Create_project = ({ onClose }) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -21,6 +20,7 @@ const Create_project = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     const storedToken = getAuthToken();
@@ -38,19 +38,13 @@ const Create_project = () => {
       description: formData.description.trim(),
       settings: {
         visibility: formData.visibility,
-        allowedLanguages: formData.allowedLanguages.filter(
-          (lang) => lang.trim() !== ""
-        ),
+        allowedLanguages: formData.allowedLanguages.filter((lang) => lang.trim() !== ""),
         maxCollaborators: parseInt(formData.maxCollaborators),
       },
     };
     try {
-      const response = projectService.createProject(payload);
-      const data = await response;
-
+      const response = await projectService.createProject(payload);
       setSuccess("Project created successfully!");
-
-      // Reset form after successful creation
       setTimeout(() => {
         setFormData({
           name: "",
@@ -60,9 +54,13 @@ const Create_project = () => {
           maxCollaborators: 2,
         });
         setSuccess("");
+        onClose(); // Close modal after success
+        // Navigate to the newly created project
+        const projectId = response.data._id; // Assuming response.data contains the project object with _id
+        const params = new URLSearchParams({ projectId });
+        router.push(`/Editor?${params.toString()}`);
       }, 2000);
-
-      return data;
+      return response;
     } catch (error) {
       console.error("Error creating project:", error);
       setError(error.message || "Failed to create project. Please try again.");
@@ -79,173 +77,137 @@ const Create_project = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-
     if (error) setError("");
   };
 
   return (
-    <div className="relative min-h-screen">
-      <div
-        className="absolute inset-0 bg-cover bg-center filter blur-sm w-full"
-        style={{
-          backgroundImage:
-            "url('https://res.cloudinary.com/dc1fkirb4/image/upload/v1756215458/pexels-codioful-6985003_tik2li.jpg')",
-        }}
-      ></div>
-      <div
-        className="bg-white/30 backdrop-blur-3xl rounded-lg p-2 text-amber-50 w-fit absolute left-5 top-5 active:scale-75 transition-transform duration-300 ease-in-out cursor-pointer"
-        onClick={() => router.push("/")}
-      >
-        &larr;HOME
-      </div>
+    <div className="bg-gray-800 rounded-2xl p-6">
+      <h2 className="text-2xl font-bold text-white mb-4 text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        Create a New Project
+      </h2>
+      <form onSubmit={handleSubmit}>
+        {/* Project Name */}
+        <LabelInputContainer>
+          <Label htmlFor="name" className="text-green-400 text-center">
+            Project Name
+          </Label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter Project Name"
+            required
+            maxLength={50}
+            className="bg-gray-700 text-white border-gray-600"
+          />
+        </LabelInputContainer>
 
-      <div className="relative z-10 pt-24 mx-96">
-        <form className="my-6" onSubmit={handleSubmit}>
-          {/* Project Name */}
-          <LabelInputContainer>
-            <Label
-              htmlFor="name"
-              className="text-green-500 text-center text-md"
-            >
-              Project Name
-            </Label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Enter Project Name"
-              required
-              maxLength={50}
-            />
-          </LabelInputContainer>
+        {/* Description */}
+        <LabelInputContainer className="mb-4">
+          <Label htmlFor="description" className="text-green-400 text-center">
+            Description
+          </Label>
+          <Input
+            id="description"
+            name="description"
+            placeholder="Enter Project Description"
+            type="text"
+            value={formData.description}
+            onChange={handleChange}
+            required
+            maxLength={200}
+            className="bg-gray-700 text-white border-gray-600"
+          />
+        </LabelInputContainer>
 
-          {/* Description */}
-          <LabelInputContainer className="mb-2">
-            <Label
-              htmlFor="description"
-              className="text-green-500 text-center text-md"
-            >
-              Description
-            </Label>
-            <Input
-              id="description"
-              name="description"
-              placeholder="Enter Project Description"
-              type="text"
-              value={formData.description}
-              onChange={handleChange}
-              required
-              maxLength={200}
-            />
-          </LabelInputContainer>
-
-          {/* Visibility */}
-          <LabelInputContainer className="mb-2">
-            <Label
-              htmlFor="visibility"
-              className="text-green-500 text-center text-md"
-            >
-              Visibility
-            </Label>
-            <select
-              id="visibility"
-              name="visibility"
-              value={formData.visibility}
-              onChange={handleChange}
-              className="border py-2 shadow-input flex h-10 w-full rounded-md border-none bg-gray-50 px-3 text-sm text-black"
-              required
-            >
-              <option value="">Select Project Visibility</option>
-              <option value="public">
-                Public (Others can join with invitation link)
-              </option>
-              <option value="private">
-                Private (No one can join this project)
-              </option>
-            </select>
-          </LabelInputContainer>
-
-          {/* Allowed Languages */}
-          <LabelInputContainer className="mb-2">
-            <Label
-              htmlFor="allowedLanguages"
-              className="text-green-500 text-center text-md"
-            >
-              Allowed Languages
-            </Label>
-            <div className="grid grid-cols-2 px-2">
-              {["javascript", "python", "java", "cpp", "html", "css"].map(
-                (lang) => (
-                  <label
-                    key={lang}
-                    className="flex items-center gap-2 capitalize text-white"
-                  >
-                    <input
-                      type="checkbox"
-                      name="allowedLanguages"
-                      value={lang}
-                      checked={formData.allowedLanguages.includes(lang)}
-                      onChange={(e) => {
-                        const { checked, value } = e.target;
-                        setFormData((prev) => ({
-                          ...prev,
-                          allowedLanguages: checked
-                            ? [...prev.allowedLanguages, value]
-                            : prev.allowedLanguages.filter((l) => l !== value),
-                        }));
-                        if (error) setError("");
-                      }}
-                    />
-                    {lang}
-                  </label>
-                )
-              )}
-            </div>
-          </LabelInputContainer>
-
-          {/* Max Collaborators */}
-          <LabelInputContainer className="mb-4">
-            <Label
-              htmlFor="maxCollaborators"
-              className="text-green-500 text-md text-center"
-            >
-              Max Collaborators: {formData.maxCollaborators}
-            </Label>
-            <input
-              id="maxCollaborators"
-              name="maxCollaborators"
-              type="range"
-              min="2"
-              max="10"
-              value={formData.maxCollaborators}
-              onChange={handleChange}
-              className="w-full"
-            />
-          </LabelInputContainer>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm mb-4">
-              {success}
-            </div>
-          )}
-
-          <button
-            className="group/btn relative block h-10 w-full rounded-md bg-gradient-to-br from-black to-neutral-600 font-medium text-white mb-3"
-            type="submit"
-            disabled={loading}
+        {/* Visibility */}
+        <LabelInputContainer className="mb-4">
+          <Label htmlFor="visibility" className="text-green-400 text-center">
+            Visibility
+          </Label>
+          <select
+            id="visibility"
+            name="visibility"
+            value={formData.visibility}
+            onChange={handleChange}
+            className="border py-2 flex h-10 w-full rounded-md border-gray-600 bg-gray-700 text-white px-3 text-sm"
+            required
           >
-            {loading ? "Creating Project..." : "Create Project"}
-            <BottomGradient />
-          </button>
-        </form>
-      </div>
+            <option value="">Select Project Visibility</option>
+            <option value="public">Public (Others can join with invitation link)</option>
+            <option value="private">Private (No one can join this project)</option>
+          </select>
+        </LabelInputContainer>
+
+        {/* Allowed Languages */}
+        <LabelInputContainer className="mb-4">
+          <Label htmlFor="allowedLanguages" className="text-green-400 text-center">
+            Allowed Languages
+          </Label>
+          <div className="grid grid-cols-2 gap-2 px-2">
+            {["javascript", "python", "java", "cpp", "html", "css"].map((lang) => (
+              <label key={lang} className="flex items-center gap-2 capitalize text-gray-300">
+                <input
+                  type="checkbox"
+                  name="allowedLanguages"
+                  value={lang}
+                  checked={formData.allowedLanguages.includes(lang)}
+                  onChange={(e) => {
+                    const { checked, value } = e.target;
+                    setFormData((prev) => ({
+                      ...prev,
+                      allowedLanguages: checked
+                        ? [...prev.allowedLanguages, value]
+                        : prev.allowedLanguages.filter((l) => l !== value),
+                    }));
+                    if (error) setError("");
+                  }}
+                />
+                {lang}
+              </label>
+            ))}
+          </div>
+        </LabelInputContainer>
+
+        {/* Max Collaborators */}
+        <LabelInputContainer className="mb-4">
+          <Label htmlFor="maxCollaborators" className="text-green-400 text-center">
+            Max Collaborators: {formData.maxCollaborators}
+          </Label>
+          <input
+            id="maxCollaborators"
+            name="maxCollaborators"
+            type="range"
+            min="2"
+            max="10"
+            value={formData.maxCollaborators}
+            onChange={handleChange}
+            className="w-full accent-green-500"
+          />
+        </LabelInputContainer>
+
+        {error && (
+          <div className="bg-red-600/20 border border-red-500 text-red-300 px-4 py-2 rounded-md text-sm mb-4">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-600/20 border border-green-500 text-green-300 px-4 py-2 rounded-md text-sm mb-4">
+            {success}
+          </div>
+        )}
+
+        <button
+          className="group/btn w-full py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium transition-all duration-200"
+          type="submit"
+          disabled={loading}
+        >
+          {loading ? "Creating Project..." : "Create Project"}
+          <BottomGradient />
+        </button>
+      </form>
     </div>
   );
 };
@@ -260,7 +222,5 @@ const BottomGradient = () => (
 );
 
 const LabelInputContainer = ({ children, className }) => (
-  <div className={cn("flex w-full flex-col space-y-2", className)}>
-    {children}
-  </div>
+  <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
 );

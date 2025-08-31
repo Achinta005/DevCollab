@@ -10,7 +10,6 @@ const {
   GetFiles_for_Project,
   GetDownloadURL,
   DeleteFile,
-  GetFileContent,
   GetFoldersNew,
   GetFolderContent,
   CreateFolderNew,
@@ -38,21 +37,18 @@ const upload = multer({
 router.use(authMiddleware);
 
 // Api Endpoint for FileManager.js
-router.post("/folders/create", CreateFolderNew);//createFolder
-router.post("/upload/:projectId", upload.single("file"), FileUpload);//uploadFiles
-router.get("/:fileId/download", GetDownloadURL);//downloadFile
-router.delete("/folders/:folderId/delete", DeleteFolder);//deleteFolder
-router.delete("/:fileId/delete", DeleteFile);//deleteFiles
+router.post("/folders/create", CreateFolderNew); //createFolder
+router.post("/upload/:projectId", upload.single("file"), FileUpload); //uploadFiles
+router.get("/:fileId/download", GetDownloadURL); //downloadFile
+router.delete("/folders/:folderId/delete", DeleteFolder); //deleteFolder
+router.delete("/:fileId/delete", DeleteFile); //deleteFiles
 router.delete("/bulk/:projectId/delete", DeleteFile); // deleteFiles Bulk
-router.patch("/:folderId/rename/folders", RenameFolder);//renameItemApi Folder
-router.patch("/:fileId/rename/files", RenameFile);//renameItemApi File
+router.patch("/:folderId/rename/folders", RenameFolder); //renameItemApi Folder
+router.patch("/:fileId/rename/files", RenameFile); //renameItemApi File
 
 // Api Endpoint for FileManagerContext.js
-router.get("/folders/project/:projectId", GetFoldersNew);//fetchFolders
-router.get("/folders/:folderId/contents", GetFolderContent);//fetchFolderContents (1'st Api Call) and  fetchAllFiles (1'st Api Call)
-router.get("/project/:projectId", GetFiles_for_Project);//fetchFolderContents (2'nd Api Call) and fetchAllFiles (2'nd Api Call)
-
-//Api Endpoint for CodeEditor.js
-router.get("/:fileId/content", GetFileContent);//<----------------------------------------------FIX
+router.get("/folders/project/:projectId", GetFoldersNew); //fetchFolders
+router.get("/folders/:folderId/contents", GetFolderContent); //fetchFolderContents (1'st Api Call) and  fetchAllFiles (1'st Api Call)
+router.get("/project/:projectId", GetFiles_for_Project); //fetchFolderContents (2'nd Api Call) and fetchAllFiles (2'nd Api Call)
 
 module.exports = router;

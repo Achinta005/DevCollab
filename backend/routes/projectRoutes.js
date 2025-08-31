@@ -14,5 +14,6 @@ router.post('/get-project',projectController.getProject);
 router.post('/update-collaborator-role',projectController.updateCollaboratorRole);
 router.post('/remove-collaborator',projectController.removeCollaborator);
 router.post('/add-collaborator',projectController.addCollaborator);
+router.delete('/delete-project/:projectId',projectController.deleteProject)
 
 module.exports = router;

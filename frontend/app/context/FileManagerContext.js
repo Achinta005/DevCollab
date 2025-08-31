@@ -14,6 +14,11 @@ export const FileManagerProvider = ({ children, projectData }) => {
     "Content-Type": "application/json",
   });
 
+const getUploadHeaders = () => ({
+  Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") : "mock-token"}`,
+  // No Content-Type - let browser set it for FormData
+});
+
   const fetchFolders = async () => {
     try {
       const response = await fetch(`${API_BASE}/folders/project/${projectId}`, {
@@ -115,6 +120,8 @@ export const FileManagerProvider = ({ children, projectData }) => {
         API_BASE,
         getAuthHeaders,
         setError,
+        projectId,
+        getUploadHeaders
       }}
     >
       {children}

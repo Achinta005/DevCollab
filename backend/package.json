@@ -23,6 +23,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.2.0",
     "aws-sdk": "^2.1692.0",
+    "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^1.41.3",
     "dotenv": "^17.2.1",
@@ -38,6 +39,9 @@
     "socket.io": "^4.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "ws": "^8.18.3",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27"
   }
 }

@@ -1,3 +1,4 @@
+import { method } from "lodash";
 import { apiCall } from "./baseApi";
 
 export const projectService = {
@@ -69,4 +70,11 @@ export const projectService = {
       body: JSON.stringify(formData),
     });
   },
+
+  //API CALL FOR DELETING PROJECT
+  deleteProject : async(projectId)=>{
+    return apiCall(`/api/projects/delete-project/${projectId}`,{
+      method:"DELETE",
+    })
+  }
 };

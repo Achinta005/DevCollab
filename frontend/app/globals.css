@@ -8,3 +8,47 @@
     0px 1px 0px 0px rgba(25, 28, 33, 0.02),
     0px 0px 0px 1px rgba(25, 28, 33, 0.08);
 }
+
+/* globals.css */
+
+/* Global Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px; /* Width of the vertical scrollbar */
+  height: 10px; /* Height of the horizontal scrollbar */
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937; /* Dark gray to match bg-gray-800 */
+  border-radius: 8px; /* Rounded track */
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #10b981, #059669); /* Green gradient to match text-green-500 and bg-green-600 */
+  border-radius: 8px; /* Rounded thumb */
+  border: 2px solid #1f2937; /* Border to blend with track */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #34d399, #10b981); /* Lighter green on hover */
+}
+
+::-webkit-scrollbar-corner {
+  background: #1f2937; /* Match track for corners */
+}
+
+/* Firefox Scrollbar Styling */
+* {
+  scrollbar-width: thin; /* Thin scrollbar for Firefox */
+  scrollbar-color: #10b981 #1f2937; /* Thumb: green-500, Track: gray-800 */
+}
+
+/* Ensure modal and scrollable areas inherit the styling */
+.overflow-y-auto, .overflow-x-auto, .overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #10b981 #1f2937;
+}
+
+/* Smooth scrolling behavior for better UX */
+html {
+  scroll-behavior: smooth;
+}

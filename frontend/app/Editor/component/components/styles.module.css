@@ -1,0 +1,591 @@
+.container {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.sidebar {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(30, 41, 59, 0.5);
+  border-right: 1px solid rgba(71, 85, 105, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.sidebar.collapsed {
+  width: 3rem;
+}
+
+.sidebar.expanded {
+  width: 20rem;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.fileTree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.fileTree::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fileTree::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fileTree::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.8);
+  border-radius: 3px;
+}
+
+.fileTree::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 1);
+}
+
+.treeNode {
+  user-select: none;
+}
+
+.treeNodeItem {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  color: rgb(203, 213, 225);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.treeNodeItem:hover {
+  background: rgba(71, 85, 105, 0.6);
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.fileItem:hover {
+  background: rgba(71, 85, 105, 0.4);
+}
+
+.fileItem.selected {
+  background: rgba(37, 99, 235, 0.2);
+  border-left: 2px solid rgb(59, 130, 246);
+}
+
+.fileItem.local {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 2px solid rgb(34, 197, 94);
+}
+
+.mainContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  height: 3.5rem;
+  background: rgba(30, 41, 59, 0.3);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+}
+
+.editorContainer {
+  flex: 1;
+  position: relative;
+}
+
+.outputPanel {
+  background: rgba(30, 41, 59, 0.3);
+  border-top: 1px solid rgba(71, 85, 105, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.outputPanel.maximized {
+  height: 100%;
+}
+
+.outputPanel.normal {
+  height: 50%;
+}
+
+.outputHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.outputTabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.outputTab {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.outputTab.active {
+  background: rgba(37, 99, 235, 0.5);
+  color: rgb(191, 219, 254);
+}
+
+.outputTab.inactive {
+  color: rgb(148, 163, 184);
+}
+
+.outputTab.inactive:hover {
+  color: rgb(203, 213, 225);
+}
+
+.outputTab.error.active {
+  background: rgba(220, 38, 38, 0.5);
+  color: rgb(252, 165, 165);
+}
+
+.inputSection {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+  background: rgba(30, 41, 59, 0.2);
+}
+
+.inputLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: rgb(203, 213, 225);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.inputTextarea {
+  width: 100%;
+  height: 4rem;
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 0.375rem;
+  color: rgb(226, 232, 240);
+  font-size: 0.875rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+  resize: none;
+  transition: border-color 0.2s ease;
+}
+
+.inputTextarea:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+}
+
+.inputTextarea::placeholder {
+  color: rgb(100, 116, 139);
+}
+
+.outputContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.outputContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.outputContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.outputContent::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 3px;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8rem;
+}
+
+.loadingSpinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid transparent;
+  border-bottom: 2px solid rgb(34, 197, 94);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.75rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.outputSection {
+  margin-bottom: 1rem;
+}
+
+.outputSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.outputSectionTitle {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.outputSectionTitle.success {
+  color: rgb(34, 197, 94);
+}
+
+.outputSectionTitle.error {
+  color: rgb(239, 68, 68);
+}
+
+.statusDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.statusDot.success {
+  background: rgb(34, 197, 94);
+}
+
+.statusDot.error {
+  background: rgb(239, 68, 68);
+}
+
+.lineCount {
+  font-size: 0.75rem;
+  color: rgb(100, 116, 139);
+}
+
+.codeBlock {
+  background: rgba(15, 23, 42, 0.6);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 24rem;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.codeBlock.success {
+  color: rgb(134, 239, 172);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.codeBlock.error {
+  color: rgb(252, 165, 165);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.codeBlock::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.codeBlock::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.codeBlock::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 3px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 4rem 0;
+}
+
+.emptyStateIcon {
+  width: 3rem;
+  height: 3rem;
+  color: rgb(100, 116, 139);
+  margin: 0 auto 0.75rem;
+}
+
+.emptyStateTitle {
+  color: rgb(148, 163, 184);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.emptyStateSubtitle {
+  color: rgb(100, 116, 139);
+  font-size: 0.75rem;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.modalContent {
+  background: rgba(30, 41, 59, 0.95);
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  width: 100%;
+  max-width: 32rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  color: rgb(226, 232, 240);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formLabel {
+  color: rgb(203, 213, 225);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.formInput {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 0.5rem;
+  color: rgb(226, 232, 240);
+  transition: border-color 0.2s ease;
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+}
+
+.formInput::placeholder {
+  color: rgb(100, 116, 139);
+}
+
+.formSelect {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 0.5rem;
+  color: rgb(226, 232, 240);
+  transition: border-color 0.2s ease;
+}
+
+.formSelect:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+}
+
+.formHint {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  background: rgba(71, 85, 105, 0.3);
+}
+
+.formHintText {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.formHintText.executable {
+  color: rgb(34, 197, 94);
+}
+
+.formHintText.nonExecutable {
+  color: rgb(148, 163, 184);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  gap: 0.75rem;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.button.secondary {
+  background: rgba(71, 85, 105, 0.5);
+  color: rgb(203, 213, 225);
+}
+
+.button.secondary:hover {
+  background: rgba(71, 85, 105, 0.7);
+}
+
+.button.primary {
+  background: rgba(37, 99, 235, 0.5);
+  color: rgb(219, 234, 254);
+}
+
+.button.primary:hover {
+  background: rgba(37, 99, 235, 0.7);
+}
+
+.button.success {
+  background: rgba(34, 197, 94, 0.5);
+  color: rgb(220, 252, 231);
+}
+
+.button.success:hover {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+.button.danger {
+  background: rgba(220, 38, 38, 0.5);
+  color: rgb(254, 226, 226);
+}
+
+.button.danger:hover {
+  background: rgba(220, 38, 38, 0.7);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button:disabled:hover {
+  background: inherit;
+}
+
+/* Status Messages */
+.statusMessage {
+  margin: 0.75rem 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.statusMessage.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(134, 239, 172);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.statusMessage.error {
+  background: rgba(220, 38, 38, 0.2);
+  color: rgb(252, 165, 165);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar.expanded {
+    width: 16rem;
+  }
+  
+  .toolbar {
+    padding: 0 0.5rem;
+  }
+  
+  .modalContent {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100% !important;
+    height: 12rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+  }
+  
+  .mainContent {
+    height: calc(100vh - 12rem);
+  }
+  
+  .outputPanel.normal {
+    height: 40%;
+  }
+}

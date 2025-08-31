@@ -1,5 +1,9 @@
 const Project = require("../models/Project");
 const User = require("../models/User");
+const jwt = require("jsonwebtoken");
+const ProjectFolder = require("../models/ProjectFolder");
+const ProjectFile = require("../models/Projectfiles");
+const mongoose = require("mongoose");
 
 // Create new project
 exports.createProject = async (req, res) => {
@@ -242,7 +246,18 @@ exports.Update_Project = async (req, res) => {
     project.settings.visibility = visibility || project.settings.visibility;
 
     await project.save();
-    console.log("\nProject Metadata Updated Successfully..","Project Name:",projectName,"Project Description:",projectDesc,"Project maxCollaborators:",maxCollaborators,"Project Visibility:",visibility,"\n");
+    console.log(
+      "\nProject Metadata Updated Successfully..",
+      "Project Name:",
+      projectName,
+      "Project Description:",
+      projectDesc,
+      "Project maxCollaborators:",
+      maxCollaborators,
+      "Project Visibility:",
+      visibility,
+      "\n"
+    );
     return res.json({
       success: true,
       message: "Project updated successfully",
@@ -277,7 +292,7 @@ exports.getProject = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
-    console.log("\nProject Sending Successfully...",project.name,"\n")
+    console.log("\nProject Sending Successfully...", project.name, "\n");
     return res.json({ success: true, data: project });
   } catch (err) {
     console.error(err);
@@ -325,7 +340,7 @@ exports.updateCollaboratorRole = async (req, res) => {
         message: "No changes made",
       });
     }
-    console.log("\nCollaborators Role Updated To..",newRole,"\n")
+    console.log("\nCollaborators Role Updated To..", newRole, "\n");
     return res.json({
       success: true,
       message: "Role updated successfully",
@@ -397,7 +412,7 @@ exports.removeCollaborator = async (req, res) => {
       });
     }
 
-    console.log("\nCollaborator Removed Successfully..\n")
+    console.log("\nCollaborator Removed Successfully..\n");
     return res.json({
       success: true,
       message: "Collaborator removed successfully",
@@ -458,7 +473,7 @@ exports.addCollaborator = async (req, res) => {
     }
 
     if (project.collaborators.length >= project.settings.maxCollaborators) {
-      console.log("\nCollaborator Added(Email:",email,")\n")
+      console.log("\nCollaborator Added(Email:", email, ")\n");
       return res.status(400).json({
         success: false,
         message: "Project has reached maximum collaborators limit",
@@ -533,5 +548,66 @@ exports.addCollaborator = async (req, res) => {
       success: false,
       message: "Server error",
     });
+  }
+};
+
+exports.deleteProject = async (req, res) => {
+  {
+    if (req.method !== "DELETE") {
+      return res
+        .status(405)
+        .json({ success: false, message: `Method ${req.method} not allowed` });
+    }
+
+    try {
+      // Extract token from Authorization header
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      if (!token) {
+        return res
+          .status(401)
+          .json({ success: false, message: "No token provided" });
+      }
+
+      const userId = req.user?.id || req.user?._id
+
+      const { projectId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(projectId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid project ID" });
+      }
+
+      // Find the project
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Project not found" });
+      }
+
+      // Check if the user is the owner
+      if (project.owner.toString() !== userId) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "Only the project owner can delete this project",
+          });
+      }
+
+      // Delete the project and associated folders/files
+      await Project.findByIdAndDelete(projectId);
+      await ProjectFolder.deleteMany({ project: projectId });
+      await ProjectFile.deleteMany({ project: projectId });
+
+      return res
+        .status(200)
+        .json({ success: true, message: "Project deleted successfully" });
+    } catch (error) {
+      console.error("Delete project error:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: error.message || "Server error" });
+    }
   }
 };

@@ -1481,7 +1481,7 @@ const FileManager = ({ projectData }) => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg p-6 m-5"
+      className="min-h-screen bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30  shadow-lg rounded-lg p-6 m-5"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

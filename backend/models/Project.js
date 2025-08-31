@@ -28,24 +28,24 @@ const ProjectSchema = new mongoose.Schema(
     folders: [{ type: mongoose.Schema.Types.ObjectId, ref: "ProjectFolder" }],
 
     fileStorage: {
-      totalSizeBytes: { type: Number, default: 0 },
+      totalSizeBytes: { type: Number, default: 0 }, // Ensure default is 0
       maxSizeBytes: { type: Number, default: 100 * 1024 * 1024 }, // 100MB
       allowedTypes: {
         type: [String],
         default: [
-          ".pdf",".doc",".docx",".txt",".jpg",".png",".gif",".svg",
-          ".zip",".py",".js",".html",".css"
+          ".pdf", ".doc", ".docx", ".txt", ".jpg", ".png", ".gif", ".svg",
+          ".zip", ".py", ".js", ".html", ".css",
         ],
       },
     },
 
     settings: {
-      visibility: { type: String, enum: ["private","public","unlisted"], default: "private" },
+      visibility: { type: String, enum: ["private", "public", "unlisted"], default: "private" },
       allowedLanguages: [{ type: String }],
       maxCollaborators: { type: Number, default: 10 },
       filePermissions: {
-        whoCanUpload: { type: String, enum: ["owner_only","collaborators","everyone"], default: "collaborators" },
-        whoCanDelete: { type: String, enum: ["owner_only","uploader_and_owner","collaborators"], default: "uploader_and_owner" },
+        whoCanUpload: { type: String, enum: ["owner_only", "collaborators", "everyone"], default: "collaborators" },
+        whoCanDelete: { type: String, enum: ["owner_only", "uploader_and_owner", "collaborators"], default: "uploader_and_owner" },
       },
     },
 
@@ -55,7 +55,7 @@ const ProjectSchema = new mongoose.Schema(
 );
 
 // Methods
-ProjectSchema.methods.canUserUploadFiles = function(userId) {
+ProjectSchema.methods.canUserUploadFiles = function (userId) {
   const userIdStr = userId.toString();
   if (this.owner.toString() === userIdStr) return true;
 
@@ -63,10 +63,10 @@ ProjectSchema.methods.canUserUploadFiles = function(userId) {
   if (uploadPermission === "everyone") return true;
   if (uploadPermission === "owner_only") return false;
 
-  return this.collaborators.some(collab => collab.user.toString() === userIdStr);
+  return this.collaborators.some((collab) => collab.user.toString() === userIdStr);
 };
 
-ProjectSchema.methods.canUserDeleteFile = function(userId, fileUploaderId) {
+ProjectSchema.methods.canUserDeleteFile = function (userId, fileUploaderId) {
   const userIdStr = userId.toString();
   if (this.owner.toString() === userIdStr) return true;
 
@@ -74,27 +74,24 @@ ProjectSchema.methods.canUserDeleteFile = function(userId, fileUploaderId) {
   if (deletePermission === "owner_only") return false;
   if (deletePermission === "uploader_and_owner") return fileUploaderId.toString() === userIdStr;
 
-  return this.collaborators.some(collab => collab.user.toString() === userIdStr);
+  return this.collaborators.some((collab) => collab.user.toString() === userIdStr);
 };
 
-ProjectSchema.methods.hasStorageSpace = function(fileSizeBytes) {
-  return (this.fileStorage.totalSizeBytes || 0) + fileSizeBytes <= this.fileStorage.maxSizeBytes;
+ProjectSchema.methods.hasStorageSpace = function (fileSizeBytes) {
+  const usedStorage = this.fileStorage.totalSizeBytes ?? 0; // Fallback to 0 if undefined
+  const maxStorage = this.fileStorage.maxSizeBytes ?? 100 * 1024 * 1024; // Fallback to 100MB
+  return usedStorage + fileSizeBytes <= maxStorage;
 };
 
-ProjectSchema.methods.updateStorageSize = async function() {
+ProjectSchema.methods.updateStorageSize = async function () {
   const ProjectFile = mongoose.model("ProjectFile");
   const result = await ProjectFile.aggregate([
     { $match: { project: this._id, isActive: true } },
     { $group: { _id: null, totalSize: { $sum: "$fileSize" } } },
   ]);
   this.fileStorage.totalSizeBytes = result.length ? result[0].totalSize : 0;
-  return this.save();
-};
-
-ProjectSchema.methods.generateInviteCode = function() {
-  const code = Math.random().toString(36).substring(2,8).toUpperCase();
-  this.inviteCode = code;
-  return code;
+  await this.save();
+  return this.fileStorage.totalSizeBytes;
 };
 
 // Indexes
