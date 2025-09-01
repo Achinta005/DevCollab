@@ -41,7 +41,7 @@ const CommunicationComponent = ({
   userId,
   userName,
   token,
-  wsUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL || "wss://your-production-url.com",
+  wsUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL,
 }) => {
   // State management
   const [ws, setWs] = useState(null);
