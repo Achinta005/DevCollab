@@ -1,13 +1,18 @@
-import React, { useState, useEffect, useMemo } from "react";
-import Editor from "@monaco-editor/react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
+const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 import { useFileManager } from "../../context/FileManagerContext";
 import { Code } from "lucide-react";
+import * as Y from "yjs";
 
 // Import sub-components
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import OutputPanel from "./components/OutputPanel";
 import NewFileModal from "./components/NewFileModel";
+import CollaborationPanel from "./components/CollaborationPanel";
+import { projectService } from "../../../services";
+import CommunicationComponent from "./Communiaction";
 
 // Import utilities and constants
 import { JUDGE0_LANGUAGES } from "./components/constants";
@@ -19,7 +24,20 @@ import {
   getTemplateContent,
 } from "./components/utils";
 
-function CodeEditor({userId,userName}) {
+// Dynamically import collaboration utilities to avoid SSR issues
+const CollaborationUtils = dynamic(
+  () => import("./components/cursor-tracking"),
+  { ssr: false }
+);
+
+// Dynamically import WebsocketProvider to avoid SSR issues
+const WebsocketProvider = dynamic(
+  () =>
+    import("y-websocket").then((mod) => ({ default: mod.WebsocketProvider })),
+  { ssr: false }
+);
+
+function CodeEditor({ userId, userName }) {
   const {
     allFiles,
     folders: flatFolders,
@@ -28,7 +46,19 @@ function CodeEditor({userId,userName}) {
     fetchFolders,
     projectId,
   } = useFileManager();
+
   const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/editor`;
+  const WS_BASE = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:1234"}`;
+
+  // Refs for editor and collaboration
+  const editorRef = useRef(null);
+  const monacoBindingRef = useRef(null);
+  const ydocRef = useRef(null);
+  const providerRef = useRef(null);
+  const ytextRef = useRef(null);
+  const awarenessManagerRef = useRef(null);
+  const collaborationUtilsRef = useRef(null);
+
   // File state
   const [selectedFile, setSelectedFile] = useState(null);
   const [editorContent, setEditorContent] = useState("");
@@ -36,6 +66,7 @@ function CodeEditor({userId,userName}) {
   const [isPdf, setIsPdf] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [localFiles, setLocalFiles] = useState(new Map());
+  const [project, setProject] = useState(null);
 
   // UI state
   const [errorMessage, setErrorMessage] = useState("");
@@ -62,14 +93,278 @@ function CodeEditor({userId,userName}) {
   const [isOutputMaximized, setIsOutputMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState("output");
 
-  const token=localStorage.getItem('token')
+  // Enhanced collaboration state
+  const [connectedUsers, setConnectedUsers] = useState([]);
+  const [isCollaborationEnabled, setIsCollaborationEnabled] = useState(false);
+  const [collaborationStatus, setCollaborationStatus] =
+    useState("disconnected");
+  const [lastSaved, setLastSaved] = useState(null);
+  const [documentSynced, setDocumentSynced] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const data = await projectService.getProject(projectId); // ✅ wait for promise
+        setProject(data.data); // now it's the actual object, not a Promise
+      } catch (error) {
+        console.error("Failed to fetch project:", error);
+      }
+    };
+
+    fetchProject();
+  }, [projectId]);
+
+  // Check if we're on client side
+  useEffect(() => {
+    setIsClient(true);
+    console.log(project);
+  }, [project]);
+
+  const currentUserId = userId; // e.g. from auth context or localStorage
+
+  // Find collaborator entry for current user
+  const collaborator = project?.collaborators?.find(
+    (c) => c.user._id === currentUserId
+  );
+
+  const currentUserRole = collaborator?.role;
+  const canEdit = currentUserRole === "owner" || currentUserRole === "editor";
+
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
   // Build file tree
   const tree = useMemo(
     () => buildFileTree(flatFolders, allFiles, localFiles),
     [flatFolders, allFiles, localFiles]
   );
 
-  // Load file content when selected file changes
+  // Load collaboration utilities
+  useEffect(() => {
+    if (isClient) {
+      import("./components/cursor-tracking").then((module) => {
+        collaborationUtilsRef.current = module;
+      });
+    }
+  }, [isClient]);
+
+  // Enhanced collaboration initialization
+  const initializeCollaboration = async (fileId) => {
+    if (!isClient || !collaborationUtilsRef.current) return null;
+
+    try {
+      cleanupCollaboration();
+
+      const ydoc = new Y.Doc();
+      const ytext = ydoc.getText("monaco");
+
+      // Dynamically import WebsocketProvider
+      const { WebsocketProvider } = await import("y-websocket");
+
+      const roomId = `file_${fileId}_${projectId}`;
+      const provider = new WebsocketProvider(WS_BASE, roomId, ydoc, {
+        params: {
+          userId,
+          userName,
+          token,
+          fileId,
+          projectId,
+        },
+      });
+
+      // Enhanced connection handling
+      provider.on("status", (event) => {
+        setCollaborationStatus(event.status);
+        console.log("Collaboration status:", event.status);
+
+        if (event.status === "connected") {
+          setErrorMessage("✅ Real-time collaboration enabled!");
+          setTimeout(() => setErrorMessage(""), 3000);
+        } else if (event.status === "disconnected") {
+          setErrorMessage("⚠️ Real-time collaboration disconnected");
+        }
+      });
+
+      // Enhanced sync handling
+      provider.on("sync", (isSynced) => {
+        setDocumentSynced(isSynced);
+
+        if (isSynced) {
+          // Load initial content if document is empty
+          if (ytext.toString() === "" && editorContent) {
+            ytext.insert(0, editorContent);
+          }
+          console.log("Document synchronized");
+        }
+      });
+
+      // Enhanced user awareness
+      const { AwarenessManager, formatUserActivity } =
+        collaborationUtilsRef.current;
+      const awarenessManager = new AwarenessManager(provider, userId, userName);
+      awarenessManagerRef.current = awarenessManager;
+
+      // Track connected users with enhanced information
+      provider.awareness.on("update", () => {
+        const users = Array.from(provider.awareness.getStates().entries())
+          .map(([clientId, state]) => ({
+            clientId,
+            userId: state.userId,
+            userName: state.userName,
+            color: state.color,
+            cursor: state.cursor,
+            selection: state.selection,
+            typing: state.typing,
+            joinedAt: state.joinedAt,
+            lastActivity: state.lastActivity,
+            activities: formatUserActivity(state),
+          }))
+          .filter((user) => user.userId && user.userId !== userId)
+          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+        setConnectedUsers(users);
+      });
+
+      // Store references
+      ydocRef.current = ydoc;
+      providerRef.current = provider;
+      ytextRef.current = ytext;
+
+      setIsCollaborationEnabled(true);
+      return { ydoc, ytext, provider };
+    } catch (error) {
+      console.error("Failed to initialize collaboration:", error);
+      setErrorMessage(`❌ Collaboration error: ${error.message}`);
+      return null;
+    }
+  };
+
+  // Enhanced cleanup
+  const cleanupCollaboration = () => {
+    if (awarenessManagerRef.current) {
+      awarenessManagerRef.current.destroy();
+      awarenessManagerRef.current = null;
+    }
+
+    if (monacoBindingRef.current) {
+      monacoBindingRef.current.destroy();
+      monacoBindingRef.current = null;
+    }
+
+    if (providerRef.current) {
+      providerRef.current.destroy();
+      providerRef.current = null;
+    }
+
+    if (ydocRef.current) {
+      ydocRef.current.destroy();
+      ydocRef.current = null;
+    }
+
+    ytextRef.current = null;
+    setIsCollaborationEnabled(false);
+    setCollaborationStatus("disconnected");
+    setConnectedUsers([]);
+    setDocumentSynced(false);
+  };
+
+  // Enhanced Monaco editor mount handler
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
+
+    if (
+      ytextRef.current &&
+      providerRef.current &&
+      awarenessManagerRef.current &&
+      collaborationUtilsRef.current
+    ) {
+      setupMonacoBinding(editor, monaco);
+    }
+  };
+
+  // Enhanced Monaco binding setup
+  const setupMonacoBinding = (editor, monaco) => {
+    if (
+      !ytextRef.current ||
+      !providerRef.current ||
+      !awarenessManagerRef.current ||
+      !collaborationUtilsRef.current
+    )
+      return;
+
+    if (typeof window === "undefined") {
+      console.warn("Monaco binding setup skipped during SSR");
+      return;
+    }
+
+    try {
+      // Use enhanced Monaco binding with cursor tracking
+      const { setupEnhancedMonacoBinding } = collaborationUtilsRef.current;
+      const binding = setupEnhancedMonacoBinding(
+        ytextRef.current,
+        editor,
+        providerRef.current
+      );
+
+      monacoBindingRef.current = binding;
+
+      // Enhanced cursor and selection tracking
+      const updateAwareness = () => {
+        const selection = editor.getSelection();
+        const position = editor.getPosition();
+
+        if (position) {
+          awarenessManagerRef.current.setCursor(
+            position.lineNumber,
+            position.column
+          );
+        }
+
+        if (selection && !selection.isEmpty()) {
+          const selectedText = editor.getModel().getValueInRange(selection);
+          awarenessManagerRef.current.setSelection(
+            selection.startLineNumber,
+            selection.startColumn,
+            selection.endLineNumber,
+            selection.endColumn,
+            selectedText
+          );
+        } else {
+          awarenessManagerRef.current.clearSelection();
+        }
+      };
+
+      // Track editor events
+      editor.onDidChangeCursorPosition(updateAwareness);
+      editor.onDidChangeCursorSelection(updateAwareness);
+
+      let typingTimeout;
+      editor.onDidChangeModelContent(() => {
+        awarenessManagerRef.current.setTyping(true);
+
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          awarenessManagerRef.current.setTyping(false);
+        }, 2000);
+      });
+
+      console.log("Enhanced Monaco binding established");
+    } catch (error) {
+      console.error("Failed to setup enhanced Monaco binding:", error);
+      setErrorMessage(`❌ Collaboration setup error: ${error.message}`);
+    }
+  };
+
+  // Use cursor decorations hook - only on client
+  useEffect(() => {
+    if (isClient && collaborationUtilsRef.current && editorRef.current) {
+      const { useCursorDecorations } = collaborationUtilsRef.current;
+      // Note: This might need to be refactored depending on how your hook is implemented
+    }
+  }, [isClient, connectedUsers]);
+
+  // Load file content with collaboration
   useEffect(() => {
     if (selectedFile) {
       loadFileContent(selectedFile.id);
@@ -80,21 +375,58 @@ function CodeEditor({userId,userName}) {
       setDownloadUrl("");
       setErrorMessage("");
       setShowOutput(false);
+      cleanupCollaboration();
     }
   }, [selectedFile]);
+
+  // Initialize collaboration for server files
+  useEffect(() => {
+    if (
+      selectedFile &&
+      !isPdf &&
+      !localFiles.has(selectedFile.id) &&
+      isClient
+    ) {
+      const initCollaboration = async () => {
+        const collaboration = await initializeCollaboration(selectedFile.id);
+
+        if (collaboration && editorRef.current && window.monaco) {
+          setupMonacoBinding(editorRef.current, window.monaco);
+        }
+      };
+
+      initCollaboration();
+    }
+
+    return () => {
+      if (!selectedFile) {
+        cleanupCollaboration();
+      }
+    };
+  }, [selectedFile, isPdf, editorContent, isClient]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupCollaboration();
+    };
+  }, []);
 
   // Close file menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setShowFileMenu(null);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-  // File operations (moved to separate file handlers)
+    if (isClient) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isClient]);
+
+  // File loading with collaboration awareness
   const loadFileContent = async (fileId) => {
     try {
       setErrorMessage("");
+      cleanupCollaboration();
 
-      // Check if it's a local file first
       if (localFiles.has(fileId)) {
         const localFile = localFiles.get(fileId);
         setEditorContent(localFile.content || "");
@@ -151,7 +483,7 @@ function CodeEditor({userId,userName}) {
       setEditorLanguage(getLanguageFromFileType(fileType));
     } catch (error) {
       setErrorMessage(
-        `Error: ${error.message}. Please check if the file exists or you have access.`
+        `❌ Error: ${error.message}. Please check if the file exists or you have access.`
       );
       setEditorContent("");
       setIsPdf(false);
@@ -159,9 +491,10 @@ function CodeEditor({userId,userName}) {
     }
   };
 
+  // Rest of the methods remain the same but with enhanced error messages and collaboration awareness
   const getUploadHeaders = () => {
     const headers = getAuthHeaders();
-    delete headers["Content-Type"]; // Let browser set multipart/form-data automatically
+    delete headers["Content-Type"];
     return headers;
   };
 
@@ -169,12 +502,16 @@ function CodeEditor({userId,userName}) {
     if (!selectedFile || isPdf || isSaving) return;
 
     const isLocalFile = localFiles.has(selectedFile.id);
+    let contentToSave = editorContent;
+
+    // Get content from Yjs document if collaboration is active
+    if (ytextRef.current && !isLocalFile && documentSynced) {
+      contentToSave = ytextRef.current.toString();
+    }
 
     if (isLocalFile) {
-      // Save local file to backend
       if (!window.confirm("Save this new file to the server?")) return;
     } else {
-      // Update existing file
       if (
         !window.confirm("Are you sure you want to save changes to this file?")
       )
@@ -184,17 +521,15 @@ function CodeEditor({userId,userName}) {
     setIsSaving(true);
     try {
       setErrorMessage("");
-      const content = typeof editorContent === "string" ? editorContent : "";
 
       if (isLocalFile) {
-        // Create file on server with content
+        // Create file on server
         const localFile = localFiles.get(selectedFile.id);
         const formData = new FormData();
         formData.append("originalName", localFile.originalName);
         formData.append("folder", localFile.folder);
 
-        // Create a blob with the actual content and proper filename
-        const contentBlob = new Blob([content], { type: "text/plain" });
+        const contentBlob = new Blob([contentToSave], { type: "text/plain" });
         formData.append("file", contentBlob, localFile.originalName);
 
         const response = await fetch(`${API_BASE}/upload/${projectId}`, {
@@ -209,7 +544,6 @@ function CodeEditor({userId,userName}) {
         if (!data.success)
           throw new Error(data.message || "Failed to save file");
 
-        // Remove from local files and refresh to get the server version
         setLocalFiles((prev) => {
           const newMap = new Map(prev);
           newMap.delete(selectedFile.id);
@@ -217,8 +551,8 @@ function CodeEditor({userId,userName}) {
         });
 
         await fetchAllFiles();
-        setSelectedFile(null); // Deselect to avoid confusion
-        setErrorMessage("File saved to server successfully!");
+        setSelectedFile(null);
+        setErrorMessage("✅ File saved to server successfully!");
       } else {
         // Update existing file
         const response = await fetch(
@@ -226,7 +560,7 @@ function CodeEditor({userId,userName}) {
           {
             method: "PUT",
             headers: getAuthHeaders(),
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ content: contentToSave }),
           }
         );
 
@@ -235,58 +569,54 @@ function CodeEditor({userId,userName}) {
         const data = await response.json();
         if (!data.success)
           throw new Error(data.message || "Failed to save file");
-        setErrorMessage("File saved successfully!");
+
+        setLastSaved(Date.now());
+        setErrorMessage("✅ File saved successfully!");
       }
 
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
-      setErrorMessage(`Error saving file: ${error.message}`);
+      setErrorMessage(`❌ Error saving file: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteFile = async (file, event) => {
-    event.stopPropagation(); // Prevent file selection when clicking delete
-    setShowFileMenu(null); // Close the menu
+    event.stopPropagation();
+    setShowFileMenu(null);
 
     const isLocalFile = localFiles.has(file.id);
 
     if (isLocalFile) {
-      // Delete local file
       if (
         !window.confirm(
           `Are you sure you want to delete "${file.originalName}"? This action cannot be undone.`
         )
-      ) {
+      )
         return;
-      }
 
-      // Remove from local files
       setLocalFiles((prev) => {
         const newMap = new Map(prev);
         newMap.delete(file.id);
         return newMap;
       });
 
-      // Deselect if it was selected
       if (selectedFile?.id === file.id) {
         setSelectedFile(null);
       }
 
-      setErrorMessage("Local file deleted successfully!");
+      setErrorMessage("✅ Local file deleted successfully!");
       setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
-    // Delete server file
     if (
       !window.confirm(
         `Are you sure you want to delete "${file.originalName}" from the server? This action cannot be undone.`
       )
-    ) {
+    )
       return;
-    }
 
     setIsDeleting(true);
     try {
@@ -309,17 +639,15 @@ function CodeEditor({userId,userName}) {
         throw new Error(data.message || "Failed to delete file");
       }
 
-      // Deselect if it was selected
       if (selectedFile?.id === file.id) {
         setSelectedFile(null);
       }
 
-      // Refresh files to update the UI
       await fetchAllFiles();
-      setErrorMessage("File deleted successfully!");
+      setErrorMessage("✅ File deleted successfully!");
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
-      setErrorMessage(`Error deleting file: ${error.message}`);
+      setErrorMessage(`❌ Error deleting file: ${error.message}`);
     } finally {
       setIsDeleting(false);
     }
@@ -330,10 +658,10 @@ function CodeEditor({userId,userName}) {
     try {
       await fetchAllFiles();
       await fetchFolders();
-      setErrorMessage("Files refreshed successfully!");
+      setErrorMessage("✅ Files refreshed successfully!");
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
-      setErrorMessage(`Error refreshing files: ${error.message}`);
+      setErrorMessage(`❌ Error refreshing files: ${error.message}`);
     } finally {
       setIsRefreshing(false);
     }
@@ -342,7 +670,7 @@ function CodeEditor({userId,userName}) {
   const handleCreateFile = () => {
     if (!projectId) {
       setErrorMessage(
-        "Error: Project ID is missing. Please ensure you are in a valid project context."
+        "❌ Error: Project ID is missing. Please ensure you are in a valid project context."
       );
       return;
     }
@@ -354,63 +682,25 @@ function CodeEditor({userId,userName}) {
     try {
       setErrorMessage("");
 
-      // Create a local file object
       const localFileId = `local_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
       const fileName = `${newFileName}.${newFileType}`;
 
-      // Get language-specific template content
       const getTemplateContent = (fileType) => {
         const templates = {
-          // C/C++
           c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}',
           cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}',
-
-          // Java
           java: `public class ${newFileName} {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}`,
-
-          // Python
           py: 'print("Hello, World!")',
-          py2: 'print "Hello, World!"',
-
-          // JavaScript/TypeScript
           js: 'console.log("Hello, World!");',
           ts: 'console.log("Hello, World!");',
-
-          // Other languages
-          cs: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello, World!");\n    }\n}',
-          go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, World!")\n}',
-          rs: 'fn main() {\n    println!("Hello, World!");\n}',
-          rb: 'puts "Hello, World!"',
-          php: '<?php\necho "Hello, World!\\n";\n?>',
-          swift: 'print("Hello, World!")',
-          kt: 'fun main() {\n    println("Hello, World!")\n}',
-          scala:
-            'object HelloWorld {\n  def main(args: Array[String]): Unit = {\n    println("Hello, World!")\n  }\n}',
-          hs: 'main :: IO ()\nmain = putStrLn "Hello, World!"',
-          sh: '#!/bin/bash\necho "Hello, World!"',
-          pas: "program HelloWorld;\nbegin\n  writeln('Hello, World!');\nend.",
-          lua: 'print("Hello, World!")',
-          r: 'cat("Hello, World!\\n")',
-          pl: 'print "Hello, World!\\n";',
-          fs: 'printfn "Hello, World!"',
-          vb: 'Module HelloWorld\n    Sub Main()\n        Console.WriteLine("Hello, World!")\n    End Sub\nEnd Module',
-          sql: "-- Hello World SQL Query\nSELECT 'Hello, World!' AS greeting;",
-
-          // Markup and data
           html: "<!DOCTYPE html>\n<html>\n<head>\n    <title>Hello World</title>\n</head>\n<body>\n    <h1>Hello, World!</h1>\n</body>\n</html>",
-          css: "/* Hello World CSS */\nbody {\n    font-family: Arial, sans-serif;\n}\n\n.greeting {\n    color: blue;\n}",
+          css: "/* Hello World CSS */\nbody {\n    font-family: Arial, sans-serif;\n}",
           json: '{\n  "message": "Hello, World!"\n}',
-          xml: '<?xml version="1.0" encoding="UTF-8"?>\n<greeting>Hello, World!</greeting>',
           md: "# Hello World\n\nThis is a markdown file.",
-          yaml: "greeting: Hello, World!\nversion: 1.0",
-          yml: "greeting: Hello, World!\nversion: 1.0",
-
-          // Default
           txt: "Hello, World!",
         };
-
         return templates[fileType] || `// New ${fileType} file: ${fileName}\n`;
       };
 
@@ -423,23 +713,19 @@ function CodeEditor({userId,userName}) {
         isLocal: true,
       };
 
-      // Add to local files map
       setLocalFiles((prev) => new Map(prev).set(localFileId, localFile));
-
-      // Select the newly created file
       setSelectedFile(localFile);
 
-      // Close modal and reset form
       setIsNewFileModalOpen(false);
       setNewFileName("");
       setNewFileType("js");
       setNewFileFolder("root");
       setErrorMessage(
-        "File created locally! Edit and save to upload to server."
+        "✅ File created locally! Edit and save to upload to server."
       );
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
-      setErrorMessage(`Error creating file: ${error.message}`);
+      setErrorMessage(`❌ Error creating file: ${error.message}`);
     }
   };
 
@@ -464,7 +750,15 @@ function CodeEditor({userId,userName}) {
     setShowOutput(true);
 
     try {
-      const fileContent = editorContent;
+      // Get current content from Yjs if collaboration is active
+      let fileContent = editorContent;
+      if (
+        ytextRef.current &&
+        !localFiles.has(selectedFile.id) &&
+        documentSynced
+      ) {
+        fileContent = ytextRef.current.toString();
+      }
 
       const response = await fetch(`${API_BASE}/execute`, {
         method: "POST",
@@ -504,6 +798,7 @@ function CodeEditor({userId,userName}) {
   const handleEditorChange = (value) => {
     setEditorContent(value);
 
+    // Update local files if it's a local file
     if (selectedFile && localFiles.has(selectedFile.id)) {
       setLocalFiles((prev) => {
         const newMap = new Map(prev);
@@ -537,153 +832,241 @@ function CodeEditor({userId,userName}) {
     occurrencesHighlight: true,
     selectionHighlight: true,
     snippetSuggestions: "inline",
+    // Enhanced for collaboration
+    glyphMargin: true, // For user cursors
+    renderLineHighlight: "gutter", // Better visibility with multiple cursors
+    readOnly: !canEdit,
+  };
+
+  // Don't render until client-side
+  if (!isClient) {
+    return (
+      <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 mx-5 rounded-lg items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4" />
+          <span className="text-slate-400">Loading Editor...</span>
+        </div>
+      </div>
+    );
+  }
+
+  //Defining Project Data for Communication components
+  const projectData = {
+    projectId: project?.id,
+    userId: userId,
+    userName: userName,
+    token: token,
+    wsUrl: "ws://localhost:1234",
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 mx-5 rounded-lg">
-      {/* Sidebar */}
-      <Sidebar
-        tree={tree}
-        selectedFile={selectedFile}
-        setSelectedFile={setSelectedFile}
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
-        showFileMenu={showFileMenu}
-        setShowFileMenu={setShowFileMenu}
-        onRefresh={handleRefresh}
-        onNewFile={() => setIsNewFileModalOpen(true)}
-        onDeleteFile={handleDeleteFile}
-        isRefreshing={isRefreshing}
-        isDeleting={isDeleting}
-        projectId={projectId}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Toolbar */}
-        <Toolbar
+    <>
+      <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 mx-5 rounded-lg">
+        {/* Sidebar */}
+        <Sidebar
+          tree={tree}
           selectedFile={selectedFile}
-          isPdf={isPdf}
-          isSaving={isSaving}
-          isExecuting={isExecuting}
-          onSave={handleSaveFile}
-          onExecute={handleExecuteFile}
+          setSelectedFile={setSelectedFile}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          showFileMenu={showFileMenu}
+          setShowFileMenu={setShowFileMenu}
+          onRefresh={handleRefresh}
+          onNewFile={() => setIsNewFileModalOpen(true)}
+          onDeleteFile={handleDeleteFile}
+          isRefreshing={isRefreshing}
+          isDeleting={isDeleting}
+          projectId={projectId}
         />
 
-        {/* Editor Area */}
-        <div
-          className={`flex-1 ${
-            showOutput && !isOutputMaximized ? "h-1/2" : ""
-          }`}
-        >
-          {/* Status/Error Bar */}
-          {errorMessage && (
-            <div
-              className={`mx-4 mt-3 p-3 rounded-lg ${
-                errorMessage.includes("success") ||
-                errorMessage.includes("created")
-                  ? "bg-green-600/20 text-green-300 border border-green-600/30"
-                  : "bg-red-600/20 text-red-300 border border-red-600/30"
-              }`}
-            >
-              <div className="flex items-center">
-                <div
-                  className={`w-2 h-2 rounded-full mr-2 ${
-                    errorMessage.includes("success") ||
-                    errorMessage.includes("created")
-                      ? "bg-green-400"
-                      : "bg-red-400"
-                  }`}
-                ></div>
-                {errorMessage}
-              </div>
-            </div>
-          )}
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Enhanced Toolbar with Collaboration */}
+          <Toolbar
+            selectedFile={selectedFile}
+            isPdf={isPdf}
+            isSaving={isSaving}
+            isExecuting={isExecuting}
+            onSave={handleSaveFile}
+            onExecute={handleExecuteFile}
+            isCollaborationEnabled={isCollaborationEnabled}
+            collaborationStatus={collaborationStatus}
+            connectedUsersCount={connectedUsers.length}
+            lastSaved={lastSaved}
+          />
 
-          {selectedFile ? (
-            isPdf ? (
-              <div className="p-4">
-                <div className="text-slate-400 mb-4">
-                  PDF files cannot be edited in the code editor.
-                </div>
-                {downloadUrl ? (
-                  <iframe
-                    src={downloadUrl}
-                    className="w-full h-[calc(100vh-200px)] border border-slate-600/50 rounded-lg bg-white"
-                    title="PDF Viewer"
+          {/* Editor Area */}
+          <div
+            className={`flex-1 ${
+              showOutput && !isOutputMaximized ? "h-1/2" : ""
+            }`}
+          >
+            {/* Enhanced Status/Error Bar */}
+            {errorMessage && (
+              <div
+                className={`mx-4 mt-3 p-3 rounded-lg ${
+                  errorMessage.includes("✅")
+                    ? "bg-green-600/20 text-green-300 border border-green-600/30"
+                    : errorMessage.includes("⚠️")
+                    ? "bg-yellow-600/20 text-yellow-300 border border-yellow-600/30"
+                    : "bg-red-600/20 text-red-300 border border-red-600/30"
+                }`}
+              >
+                <div className="flex items-center">
+                  <div
+                    className={`w-2 h-2 rounded-full mr-2 ${
+                      errorMessage.includes("✅")
+                        ? "bg-green-400"
+                        : errorMessage.includes("⚠️")
+                        ? "bg-yellow-400"
+                        : "bg-red-400"
+                    }`}
                   />
+                  {errorMessage}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-1">
+              {/* Editor */}
+              <div className="flex-1">
+                {selectedFile ? (
+                  isPdf ? (
+                    <div className="p-4">
+                      <div className="text-slate-400 mb-4">
+                        PDF files cannot be edited in the code editor.
+                      </div>
+                      {downloadUrl ? (
+                        <iframe
+                          src={downloadUrl}
+                          className="w-full h-[calc(100vh-200px)] border border-slate-600/50 rounded-lg bg-white"
+                          title="PDF Viewer"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-64">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3" />
+                          <span className="text-slate-400">Loading PDF...</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-full relative">
+                      {/* Collaboration status overlay */}
+                      {isCollaborationEnabled && !documentSynced && (
+                        <div className="absolute top-4 right-4 z-10 bg-yellow-600/90 text-yellow-100 px-3 py-1 rounded-md text-sm flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-3 w-3 border border-yellow-300 border-t-transparent" />
+                          <span>Syncing document...</span>
+                        </div>
+                      )}
+
+                      <Editor
+                        height={
+                          showOutput && !isOutputMaximized
+                            ? "calc(50vh - 120px)"
+                            : "calc(100vh - 140px)"
+                        }
+                        language={editorLanguage}
+                        value={
+                          localFiles.has(selectedFile.id)
+                            ? editorContent
+                            : undefined
+                        }
+                        onChange={
+                          canEdit && localFiles.has(selectedFile.id)
+                            ? handleEditorChange
+                            : undefined
+                        }
+                        onMount={handleEditorDidMount}
+                        options={editorOptions}
+                        theme="vs-dark"
+                      />
+                    </div>
+                  )
                 ) : (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3"></div>
-                    <span className="text-slate-400">Loading PDF...</span>
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <Code className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                      <h3 className="text-slate-300 text-xl mb-2">
+                        Welcome to DevCollab
+                      </h3>
+                      <p className="text-slate-400 mb-6 max-w-md">
+                        Select a file from the sidebar to start editing
+                        collaboratively in real-time.
+                      </p>
+                      <div className="flex items-center justify-center space-x-6 text-sm text-slate-500">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 rounded-full bg-green-400" />
+                          <span>Real-time sync</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-400" />
+                          <span>Live cursors</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-400" />
+                          <span>Multi-user editing</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="h-full">
-                <Editor
-                  height={
-                    showOutput && !isOutputMaximized
-                      ? "calc(50vh - 100px)"
-                      : "calc(100vh - 120px)"
-                  }
-                  language={editorLanguage}
-                  value={editorContent}
-                  onChange={handleEditorChange}
-                  options={editorOptions}
-                  theme="vs-dark"
+
+              {/* Enhanced Collaboration Panel */}
+              {isCollaborationEnabled && selectedFile && !isPdf && (
+                <CollaborationPanel
+                  connectedUsers={connectedUsers}
+                  collaborationStatus={collaborationStatus}
+                  currentUser={{ userId, userName }}
+                  documentSynced={documentSynced}
+                  roomId={`file_${selectedFile.id}_${projectId}`}
                 />
-              </div>
-            )
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Code className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-slate-300 text-xl mb-2">
-                  Welcome to DevCollab
-                </h3>
-                <p className="text-slate-400 mb-6 max-w-md">
-                  Select a file from the sidebar to start editing.
-                </p>
-              </div>
+              )}
             </div>
+          </div>
+
+          {/* Output Panel */}
+          {showOutput && (
+            <OutputPanel
+              isOutputMaximized={isOutputMaximized}
+              setIsOutputMaximized={setIsOutputMaximized}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              selectedFile={selectedFile}
+              executionInput={executionInput}
+              setExecutionInput={setExecutionInput}
+              isExecuting={isExecuting}
+              executionOutput={executionOutput}
+              executionError={executionError}
+              onClose={() => setShowOutput(false)}
+            />
           )}
         </div>
 
-        {/* Output Panel */}
-        {showOutput && (
-          <OutputPanel
-            isOutputMaximized={isOutputMaximized}
-            setIsOutputMaximized={setIsOutputMaximized}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            selectedFile={selectedFile}
-            executionInput={executionInput}
-            setExecutionInput={setExecutionInput}
-            isExecuting={isExecuting}
-            executionOutput={executionOutput}
-            executionError={executionError}
-            onClose={() => setShowOutput(false)}
+        {/* New File Modal */}
+        {isNewFileModalOpen && (
+          <NewFileModal
+            isOpen={isNewFileModalOpen}
+            onClose={() => setIsNewFileModalOpen(false)}
+            newFileName={newFileName}
+            setNewFileName={setNewFileName}
+            newFileType={newFileType}
+            setNewFileType={setNewFileType}
+            newFileFolder={newFileFolder}
+            setNewFileFolder={setNewFileFolder}
+            flatFolders={flatFolders}
+            onCreate={handleCreateFile}
           />
         )}
       </div>
-
-      {/* New File Modal */}
-      {isNewFileModalOpen && (
-        <NewFileModal
-          isOpen={isNewFileModalOpen}
-          onClose={() => setIsNewFileModalOpen(false)}
-          newFileName={newFileName}
-          setNewFileName={setNewFileName}
-          newFileType={newFileType}
-          setNewFileType={setNewFileType}
-          newFileFolder={newFileFolder}
-          setNewFileFolder={setNewFileFolder}
-          flatFolders={flatFolders}
-          onCreate={handleCreateFile}
-        />
-      )}
-    </div>
+      <CommunicationComponent
+        projectId={projectId}
+        userId={projectData.userId}
+        userName={projectData.userName}
+        token={projectData.token}
+        wsUrl={projectData.wsUrl}
+      />
+    </>
   );
 }
 

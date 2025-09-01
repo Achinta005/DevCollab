@@ -3,18 +3,10 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
 const connectDB = require("./config/db");
-const http = require('http');
-const { WebSocketServer } = require('ws');
-const { setupWSConnection } = require('y-websocket');
-const Project=require('./models/Project');
-const File = require('./models/Projectfiles');
-const authMiddleware=require('./middleware/auth')
 
 const app = express();
 // app.use(authMiddleware)
 const port = process.env.PORT || 3001;
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
 // Middleware
 app.use(
@@ -74,53 +66,6 @@ app.use((err, req, res, next) => {
     success: false,
     message: err.message || "Internal server error",
   });
-});
-
-
-
-// WebSocket connection for real-time editing
-wss.on('connection', async (ws, req) => {
-  const [projectId, fileId] = req.url?.slice(1).split('_') || [];
-  const roomId = `${projectId}_${fileId}`;
-  const params = new URLSearchParams(req.url.split('?')[1]);
-  const token = params.get('token');
-  const userId = params.get('userId');
-
-  if (!projectId || !fileId || !token || !userId || !(await verifyToken(token, projectId, userId))) {
-    ws.close(4000, 'Unauthorized');
-    return;
-  }
-
-  const file = await File.findOne({ fileId, projectId });
-  if (!file) {
-    ws.close(4004, 'File not found');
-    return;
-  }
-
-  setupWSConnection(ws, req, { room: roomId });
-});
-
-// Existing editor routes (ensure compatibility with your current setup)
-// Example: Get file content
-app.get('/editor/:fileId/content', async (req, res) => {
-  const { fileId } = req.params;
-  const { userId, token } = req.query;
-  const file = await File.findOne({ fileId });
-  if (!file || !(await verifyToken(token, file.projectId, userId))) {
-    return res.status(403).json({ success: false, message: 'Unauthorized' });
-  }
-  res.json({ success: true, content: file.content });
-});
-
-// Add to your existing auth route
-app.post('/editor/auth', async (req, res) => {
-  const { userId, projectId } = req.body;
-  const project = await Project.findOne({ projectId });
-  if (!project?.users.some(u => u.userId === userId && ['owner', 'collaborator'].includes(u.role))) {
-    return res.status(403).json({ success: false, message: 'Unauthorized' });
-  }
-  const token = jwt.sign({ userId, projectId }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '1h' });
-  res.json({ success: true, token });
 });
 
 // Connect to MongoDB and start server
