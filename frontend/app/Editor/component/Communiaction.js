@@ -41,7 +41,7 @@ const CommunicationComponent = ({
   userId,
   userName,
   token,
-  wsUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL,
+  wsUrl = 'https://devcollab-backend-websocket.onrender.com',
 }) => {
   // State management
   const [ws, setWs] = useState(null);
@@ -88,7 +88,7 @@ const CommunicationComponent = ({
     mounted.current = true;
     const connectWebSocket = () => {
       const wsConnection = new WebSocket(
-        `${wsUrl}/${projectId}?userId=${userId}&userName=${userName}&token=${token}&projectId=${projectId}`
+        `${process.env.NEXT_PUBLIC_SOCKET_URL}/${projectId}?userId=${userId}&userName=${userName}&token=${token}&projectId=${projectId}`
       );
 
       wsConnection.onopen = () => {
