@@ -48,7 +48,7 @@ function CodeEditor({ userId, userName }) {
   } = useFileManager();
 
   const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/editor`;
-  const WS_BASE = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:1234"}`;
+  const WS_BASE = `${process.env.NEXT_PUBLIC_SOCKET_URL}`;
 
   // Refs for editor and collaboration
   const editorRef = useRef(null);
