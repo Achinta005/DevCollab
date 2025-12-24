@@ -118,7 +118,6 @@ function CodeEditor({ userId, userName }) {
   // Check if we're on client side
   useEffect(() => {
     setIsClient(true);
-    console.log(project);
   }, [project]);
 
   const currentUserId = userId; // e.g. from auth context or localStorage

@@ -94,6 +94,18 @@ ProjectSchema.methods.updateStorageSize = async function () {
   return this.fileStorage.totalSizeBytes;
 };
 
+ProjectSchema.methods.generateInviteCode = function (length = 6) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  this.inviteCode = code;
+  return code;
+};
+
 // Indexes
 ProjectSchema.index({ owner: 1 });
 ProjectSchema.index({ "collaborators.user": 1 });

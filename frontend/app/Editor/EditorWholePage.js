@@ -63,6 +63,8 @@ const UserProfile = () => {
     );
   }
 
+  
+
   return (
     <div className="bg-black/90 h-fit">
       <div className="flex items-center justify-between p-5">
@@ -75,7 +77,7 @@ const UserProfile = () => {
         <div className="text-amber-50 text-lg font-semibold">
           Welcome to DevCollab
         </div>
-        <div className="text-amber-50 text-xl">Welcome {user.username}</div>
+        <div className="text-amber-50 text-xl">Welcome {userData.firstname}</div>
       </div>
 
       <ProjectInfo projectData={projectData} />
