@@ -41,7 +41,7 @@ const CommunicationComponent = ({
   userId,
   userName,
   token,
-  wsUrl = 'https://devcollab-backend-websocket.onrender.com',
+  wsUrl, // Will use this or fall back to env variable
 }) => {
   // State management
   const [ws, setWs] = useState(null);
@@ -68,7 +68,6 @@ const CommunicationComponent = ({
   const [editingMessage, setEditingMessage] = useState(null);
 
   // Refs
-  const messagesEndRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideosRef = useRef(new Map());
   const peerConnections = useRef(new Map());
@@ -76,6 +75,10 @@ const CommunicationComponent = ({
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
   const mounted = useRef(true);
+
+  const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const [showScrollDown, setShowScrollDown] = useState(false);
 
   // ICE servers configuration
   const iceServers = [
@@ -86,17 +89,33 @@ const CommunicationComponent = ({
   // WebSocket connection setup
   useEffect(() => {
     mounted.current = true;
+
+    // Determine WebSocket URL: use prop, then env variable, then default
+    const getWebSocketUrl = () => {
+      if (wsUrl) return wsUrl;
+      if (process.env.NEXT_PUBLIC_SOCKET_URL)
+        return process.env.NEXT_PUBLIC_SOCKET_URL;
+      return "ws://localhost:3001/api/chat"; // fallback
+    };
+
     const connectWebSocket = () => {
-      const wsConnection = new WebSocket(
-        `${process.env.NEXT_PUBLIC_SOCKET_URL}/${projectId}?userId=${userId}&userName=${userName}&token=${token}&projectId=${projectId}`
-      );
+      const baseUrl = getWebSocketUrl().replace(/\/$/, ""); // Remove trailing slash
+      const wsUrl = `${baseUrl}/${projectId}?userId=${userId}&userName=${encodeURIComponent(
+        userName
+      )}&token=${token}&projectId=${projectId}`;
+
+      console.log("🔌 Connecting to WebSocket:", wsUrl);
+
+      const wsConnection = new WebSocket(wsUrl);
 
       wsConnection.onopen = () => {
-        if (mounted.current) {
-          console.log("WebSocket connected");
-          setIsConnected(true);
-          setWs(wsConnection);
-        }
+        console.log("✅ WebSocket connected successfully");
+        setIsConnected(true);
+        setWs(wsConnection);
+      };
+
+      wsConnection.onerror = (error) => {
+        console.error("❌ WebSocket error:", error);
       };
 
       wsConnection.onmessage = (event) => {
@@ -118,10 +137,6 @@ const CommunicationComponent = ({
           setTimeout(connectWebSocket, 3000);
         }
       };
-
-      wsConnection.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
     };
 
     connectWebSocket();
@@ -140,11 +155,46 @@ const CommunicationComponent = ({
     };
   }, [projectId, userId, userName, token, wsUrl]);
 
+  useEffect(() => {
+    if (localVideoRef.current && localStream.current) {
+      console.log("🔁 Re-attaching local stream to video element");
+      localVideoRef.current.srcObject = localStream.current;
+
+      localVideoRef.current
+        .play()
+        .then(() => setIsPlayingLocally(true))
+        .catch(() => setIsPlayingLocally(false));
+    }
+  }, [isInCall]);
+
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    setShowScrollDown(distanceFromBottom > 60);
+  }, []);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    if (distanceFromBottom < 40) {
+      setShowScrollDown(false);
+    }
+  }, [messages]);
+
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback(
     async (event) => {
       if (event.data instanceof Blob) {
-        console.warn("Received Blob data, handling not implemented:", event.data);
+        console.warn(
+          "Received Blob data, handling not implemented:",
+          event.data
+        );
         return;
       }
 
@@ -158,10 +208,11 @@ const CommunicationComponent = ({
             break;
           case "chat_message":
             setMessages((prev) => [...prev, data.message]);
-            scrollToBottom();
             break;
           case "user_joined":
-            setActiveUsers((prev) => new Map(prev.set(data.user.userId, data.user)));
+            setActiveUsers(
+              (prev) => new Map(prev.set(data.user.userId, data.user))
+            );
             setMessages((prev) => [
               ...prev,
               {
@@ -193,7 +244,9 @@ const CommunicationComponent = ({
             ]);
             break;
           case "typing_stop":
-            setIsTyping((prev) => prev.filter((u) => u.userId !== data.user.userId));
+            setIsTyping((prev) =>
+              prev.filter((u) => u.userId !== data.user.userId)
+            );
             break;
           case "video_call_started":
             console.log("Video call started, callId:", data.callId);
@@ -221,7 +274,9 @@ const CommunicationComponent = ({
             break;
           case "video_call_user_joined":
             console.log("User joined call:", data.user.userId);
-            setCallParticipants((prev) => new Map(prev.set(data.user.userId, data.user)));
+            setCallParticipants(
+              (prev) => new Map(prev.set(data.user.userId, data.user))
+            );
             if (isInCall && data.user.userId !== userId) {
               setTimeout(() => sendVideoCallOffer(data.user.userId), 1000);
             }
@@ -268,14 +323,26 @@ const CommunicationComponent = ({
     }
 
     peerConnection.ontrack = (event) => {
-      console.log("Received remote track from:", targetUserId, event.streams[0]);
-      const remoteVideo = document.getElementById(`remote-video-${targetUserId}`);
+      console.log(
+        "Received remote track from:",
+        targetUserId,
+        event.streams[0]
+      );
+      const remoteVideo = document.getElementById(
+        `remote-video-${targetUserId}`
+      );
       if (remoteVideo && event.streams[0]) {
         remoteVideo.srcObject = event.streams[0];
-        remoteVideosRef.current.set(targetUserId, { video: remoteVideo, needsPlay: true });
+        remoteVideosRef.current.set(targetUserId, {
+          video: remoteVideo,
+          needsPlay: true,
+        });
         remoteVideo.play().catch((err) => {
           console.warn("Remote video autoplay failed:", err);
-          remoteVideosRef.current.set(targetUserId, { video: remoteVideo, needsPlay: true });
+          remoteVideosRef.current.set(targetUserId, {
+            video: remoteVideo,
+            needsPlay: true,
+          });
         });
       }
     };
@@ -293,11 +360,17 @@ const CommunicationComponent = ({
     };
 
     peerConnection.onconnectionstatechange = () => {
-      console.log(`Connection state for ${targetUserId}:`, peerConnection.connectionState);
+      console.log(
+        `Connection state for ${targetUserId}:`,
+        peerConnection.connectionState
+      );
     };
 
     peerConnection.oniceconnectionstatechange = () => {
-      console.log(`ICE connection state for ${targetUserId}:`, peerConnection.iceConnectionState);
+      console.log(
+        `ICE connection state for ${targetUserId}:`,
+        peerConnection.iceConnectionState
+      );
     };
 
     peerConnections.current.set(targetUserId, peerConnection);
@@ -339,8 +412,13 @@ const CommunicationComponent = ({
       console.log("Handling video call offer from:", data.fromUser.userId);
       const peerConnection = createPeerConnection(data.fromUser.userId);
 
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-      console.log("Remote description set for offer from:", data.fromUser.userId);
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription(data.offer)
+      );
+      console.log(
+        "Remote description set for offer from:",
+        data.fromUser.userId
+      );
 
       const answer = await peerConnection.createAnswer({
         offerToReceiveAudio: true,
@@ -366,8 +444,13 @@ const CommunicationComponent = ({
       console.log("Handling video call answer from:", data.fromUser.userId);
       const peerConnection = peerConnections.current.get(data.fromUser.userId);
       if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        console.log("Remote description set for answer from:", data.fromUser.userId);
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(data.answer)
+        );
+        console.log(
+          "Remote description set for answer from:",
+          data.fromUser.userId
+        );
       } else {
         console.error("No peer connection found for:", data.fromUser.userId);
       }
@@ -381,10 +464,15 @@ const CommunicationComponent = ({
       console.log("Handling ICE candidate from:", data.fromUser.userId);
       const peerConnection = peerConnections.current.get(data.fromUser.userId);
       if (peerConnection && peerConnection.remoteDescription) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        await peerConnection.addIceCandidate(
+          new RTCIceCandidate(data.candidate)
+        );
         console.log("ICE candidate added for:", data.fromUser.userId);
       } else {
-        console.warn("Cannot add ICE candidate - no peer connection or remote description for:", data.fromUser.userId);
+        console.warn(
+          "Cannot add ICE candidate - no peer connection or remote description for:",
+          data.fromUser.userId
+        );
       }
     } catch (error) {
       console.error("Error handling ICE candidate:", error);
@@ -410,6 +498,8 @@ const CommunicationComponent = ({
 
   // Initialize media stream with proper constraints
   const initializeMediaStream = async () => {
+    console.log("localVideoRef at init:", localVideoRef.current);
+
     try {
       console.log("Attempting to initialize media stream...");
 
@@ -435,7 +525,10 @@ const CommunicationComponent = ({
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log("Media stream initialized with tracks:", stream.getTracks().map((t) => `${t.kind}: ${t.enabled}`));
+      console.log(
+        "Media stream initialized with tracks:",
+        stream.getTracks().map((t) => `${t.kind}: ${t.enabled}`)
+      );
 
       localStream.current = stream;
       setMediaError(null);
@@ -456,7 +549,11 @@ const CommunicationComponent = ({
 
       return stream;
     } catch (error) {
-      console.error("Error accessing media devices:", error.name, error.message);
+      console.error(
+        "Error accessing media devices:",
+        error.name,
+        error.message
+      );
       const errorMessage =
         error.name === "NotAllowedError"
           ? "Camera/microphone access denied. Please allow permissions and refresh."
@@ -514,7 +611,7 @@ const CommunicationComponent = ({
       content: newMessage,
       replyTo: replyingTo?._id,
     };
-
+    console.log(messageData);
     sendWebSocketMessage(messageData);
     setNewMessage("");
     setReplyingTo(null);
@@ -563,14 +660,15 @@ const CommunicationComponent = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // Limit to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      // Limit to 5MB
       alert("File is too large (max 5MB)");
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
-      const base64Data = reader.result.split(',')[1]; // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64Data = reader.result.split(",")[1]; // Remove data URL prefix
       sendWebSocketMessage({
         type: "file_upload",
         fileName: file.name,
@@ -583,7 +681,7 @@ const CommunicationComponent = ({
       console.error("Error reading file:", error);
       alert("Failed to read file");
     };
-    reader.readAsDataURL(file); // Read as base64
+    reader.readAsDataURL(file);
   };
 
   // Video call functions
@@ -598,7 +696,10 @@ const CommunicationComponent = ({
       console.log("Video call started, waiting for participants...");
     } catch (error) {
       console.error("Error starting video call:", error);
-      alert(mediaError || "Could not start video call. Please check your camera and microphone permissions.");
+      alert(
+        mediaError ||
+          "Could not start video call. Please check your camera and microphone permissions."
+      );
     }
   };
 
@@ -616,7 +717,10 @@ const CommunicationComponent = ({
       console.log("Joined video call");
     } catch (error) {
       console.error("Error joining video call:", error);
-      alert(mediaError || "Could not join video call. Please check your camera and microphone permissions.");
+      alert(
+        mediaError ||
+          "Could not join video call. Please check your camera and microphone permissions."
+      );
     }
   };
 
@@ -688,7 +792,9 @@ const CommunicationComponent = ({
         })
         .catch((err) => {
           console.error("Manual play failed:", err);
-          setMediaError("Failed to play video. Try refreshing or checking permissions.");
+          setMediaError(
+            "Failed to play video. Try refreshing or checking permissions."
+          );
         });
     }
   };
@@ -699,8 +805,13 @@ const CommunicationComponent = ({
       videoData.video
         .play()
         .then(() => {
-          console.log(`Remote video for ${participantId} started playing manually`);
-          remoteVideosRef.current.set(participantId, { video: videoData.video, needsPlay: false });
+          console.log(
+            `Remote video for ${participantId} started playing manually`
+          );
+          remoteVideosRef.current.set(participantId, {
+            video: videoData.video,
+            needsPlay: false,
+          });
         })
         .catch((err) => {
           console.error(`Manual play failed for ${participantId}:`, err);
@@ -745,20 +856,25 @@ const CommunicationComponent = ({
 
   // Helper functions
   const sendWebSocketMessage = (data) => {
+    console.log("📤 Sending WS message to backend:", data);
+
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(data));
+      console.log("✅ WS send() executed");
     } else {
-      console.warn("WebSocket not connected, cannot send message:", data);
+      console.warn("❌ WebSocket not connected", {
+        wsExists: !!ws,
+        readyState: ws?.readyState,
+        data,
+      });
     }
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const updateMessageReactions = (data) => {
     setMessages((prev) =>
-      prev.map((msg) => (msg._id === data.messageId ? { ...msg, reactions: data.reactions } : msg))
+      prev.map((msg) =>
+        msg._id === data.messageId ? { ...msg, reactions: data.reactions } : msg
+      )
     );
   };
 
@@ -771,7 +887,9 @@ const CommunicationComponent = ({
   const removeMessage = (messageId) => {
     setMessages((prev) =>
       prev.map((msg) =>
-        msg._id === messageId ? { ...msg, deleted: true, content: "[Message deleted]" } : msg
+        msg._id === messageId
+          ? { ...msg, deleted: true, content: "[Message deleted]" }
+          : msg
       )
     );
   };
@@ -798,17 +916,14 @@ const CommunicationComponent = ({
     }
   };
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // Rest of your JSX remains the same...
 
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-gray-900 text-white">
         {/* Chat Section */}
         <div
-          className={`flex flex-col bg-gray-800 border-r border-gray-700 transition-all duration-300 ${
+          className={`relative flex flex-col bg-gray-800 border-r border-gray-700 transition-all duration-300 ${
             isChatMinimized ? "w-16" : "w-96"
           }`}
         >
@@ -821,9 +936,13 @@ const CommunicationComponent = ({
                   <span className="font-medium">Chat</span>
                   <div className="flex items-center space-x-1">
                     <div
-                      className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
+                      className={`w-2 h-2 rounded-full ${
+                        isConnected ? "bg-green-500" : "bg-red-500"
+                      }`}
                     />
-                    <span className="text-xs text-gray-400">{activeUsers.size} online</span>
+                    <span className="text-xs text-gray-400">
+                      {activeUsers.size} online
+                    </span>
                   </div>
                 </div>
                 <button
@@ -847,11 +966,16 @@ const CommunicationComponent = ({
           {!isChatMinimized && (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-4"
+              >
                 {messages.map((message, index) => {
                   const showDate =
                     index === 0 ||
-                    formatDate(messages[index - 1]?.timestamp) !== formatDate(message.timestamp);
+                    formatDate(messages[index - 1]?.timestamp) !==
+                      formatDate(message.timestamp);
 
                   return (
                     <div key={message._id || index}>
@@ -864,11 +988,15 @@ const CommunicationComponent = ({
                       )}
 
                       {message.type === "system" ? (
-                        <div className="text-center text-gray-400 text-sm">{message.content}</div>
+                        <div className="text-center text-gray-400 text-sm">
+                          {message.content}
+                        </div>
                       ) : (
                         <div
                           className={`flex ${
-                            message.sender?.userId === userId ? "justify-end" : "justify-start"
+                            message.sender?.userId === userId
+                              ? "justify-end"
+                              : "justify-start"
                           } group`}
                         >
                           <div
@@ -880,53 +1008,20 @@ const CommunicationComponent = ({
                           >
                             {message.replyTo && (
                               <div className="text-xs opacity-70 mb-1 pl-2 border-l-2 border-gray-500">
-                                Replying to: {message.replyTo.content.substring(0, 50)}...
+                                Replying to:{" "}
+                                {message.replyTo.content.substring(0, 50)}...
                               </div>
                             )}
 
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 {message.sender?.userId !== userId && (
-                                  <p className="text-xs font-medium mb-1">{message.sender?.userName}</p>
+                                  <p className="text-xs font-medium mb-1">
+                                    {message.sender?.userName}
+                                  </p>
                                 )}
                                 <p className="text-sm">{message.content}</p>
-
-                                {message.reactions && message.reactions.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-2">
-                                    {Object.entries(
-                                      message.reactions.reduce((acc, reaction) => {
-                                        acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1;
-                                        return acc;
-                                      }, {})
-                                    ).map(([emoji, count]) => (
-                                      <span
-                                        key={emoji}
-                                        className="text-xs bg-gray-600 px-2 py-1 rounded-full cursor-pointer hover:bg-gray-500"
-                                        onClick={() => addReaction(message._id, emoji)}
-                                      >
-                                        {emoji} {count}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
                               </div>
-
-                              {message.sender?.userId === userId && !message.deleted && (
-                                <div className="ml-2 opacity-0 group-hover:opacity-100">
-                                  <button
-                                    onClick={() => setEditingMessage(message)}
-                                    className="p-1 hover:bg-gray-600 rounded"
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteMessage(message._id)}
-                                    className="p-1 hover:bg-gray-600 rounded"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
                             </div>
 
                             <div className="flex items-center justify-between mt-1">
@@ -934,23 +1029,6 @@ const CommunicationComponent = ({
                                 {formatTime(message.timestamp)}
                                 {message.edited && " (edited)"}
                               </span>
-
-                              {!message.deleted && (
-                                <div className="flex space-x-1">
-                                  <button
-                                    onClick={() => replyToMessage(message)}
-                                    className="p-1 hover:bg-gray-600 rounded opacity-0 group-hover:opacity-100"
-                                  >
-                                    <Reply className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => addReaction(message._id, "👍")}
-                                    className="p-1 hover:bg-gray-600 rounded opacity-0 group-hover:opacity-100"
-                                  >
-                                    <Smile className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -975,8 +1053,12 @@ const CommunicationComponent = ({
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
                       <span className="text-gray-400">Replying to </span>
-                      <span className="font-medium">{replyingTo.sender.userName}</span>
-                      <p className="text-xs text-gray-500 truncate">{replyingTo.content}</p>
+                      <span className="font-medium">
+                        {replyingTo.sender.userName}
+                      </span>
+                      <p className="text-xs text-gray-500 truncate">
+                        {replyingTo.content}
+                      </p>
                     </div>
                     <button
                       onClick={() => setReplyingTo(null)}
@@ -1020,10 +1102,49 @@ const CommunicationComponent = ({
                   </button>
                 </div>
 
-                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
               </div>
             </>
           )}
+          {showScrollDown && !isChatMinimized && (
+  <button
+    onClick={() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setShowScrollDown(false);
+    }}
+    title="Jump to latest"
+    className="
+      absolute
+      bottom-28  
+      right-4
+      z-30
+
+      w-11 h-11
+      rounded-full
+      flex items-center justify-center
+
+      bg-gray-900/50
+      backdrop-blur
+      border border-gray-700
+
+      shadow-xl shadow-black/40
+      hover:bg-blue-600
+      hover:border-blue-500
+      hover:scale-110
+      active:scale-95
+
+      transition-all duration-200 ease-out
+    "
+  >
+    <span className="text-lg leading-none">↓</span>
+  </button>
+)}
+
         </div>
 
         {/* Video Section */}
@@ -1035,11 +1156,14 @@ const CommunicationComponent = ({
               <span className="font-medium">Video Conference</span>
               {isVideoCallActive && (
                 <span className="text-sm text-green-400">
-                  Call active • {callParticipants.size + (isInCall ? 1 : 0)} participants
+                  Call active • {callParticipants.size + (isInCall ? 1 : 0)}{" "}
+                  participants
                 </span>
               )}
               {mediaError && (
-                <span className="text-sm text-red-400 max-w-md truncate">{mediaError}</span>
+                <span className="text-sm text-red-400 max-w-md truncate">
+                  {mediaError}
+                </span>
               )}
             </div>
 
@@ -1070,21 +1194,37 @@ const CommunicationComponent = ({
                   <button
                     onClick={toggleAudio}
                     className={`p-2 rounded-full ${
-                      isAudioEnabled ? "bg-gray-600 hover:bg-gray-700" : "bg-red-600 hover:bg-red-700"
+                      isAudioEnabled
+                        ? "bg-gray-600 hover:bg-gray-700"
+                        : "bg-red-600 hover:bg-red-700"
                     }`}
-                    title={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
+                    title={
+                      isAudioEnabled ? "Mute microphone" : "Unmute microphone"
+                    }
                   >
-                    {isAudioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                    {isAudioEnabled ? (
+                      <Mic className="w-4 h-4" />
+                    ) : (
+                      <MicOff className="w-4 h-4" />
+                    )}
                   </button>
 
                   <button
                     onClick={toggleVideo}
                     className={`p-2 rounded-full ${
-                      isVideoEnabled ? "bg-gray-600 hover:bg-gray-700" : "bg-red-600 hover:bg-red-700"
+                      isVideoEnabled
+                        ? "bg-gray-600 hover:bg-gray-700"
+                        : "bg-red-600 hover:bg-red-700"
                     }`}
-                    title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
+                    title={
+                      isVideoEnabled ? "Turn off camera" : "Turn on camera"
+                    }
                   >
-                    {isVideoEnabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                    {isVideoEnabled ? (
+                      <Video className="w-4 h-4" />
+                    ) : (
+                      <VideoOff className="w-4 h-4" />
+                    )}
                   </button>
 
                   <button
@@ -1113,8 +1253,12 @@ const CommunicationComponent = ({
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Video className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-xl font-medium mb-2">No active video call</h3>
-                  <p className="text-gray-400">Start a call to begin video conferencing</p>
+                  <h3 className="text-xl font-medium mb-2">
+                    No active video call
+                  </h3>
+                  <p className="text-gray-400">
+                    Start a call to begin video conferencing
+                  </p>
                 </div>
               </div>
             ) : (
@@ -1130,7 +1274,9 @@ const CommunicationComponent = ({
                             autoPlay
                             muted
                             playsInline
-                            className={`w-full h-full object-cover ${!isVideoEnabled ? "hidden" : ""}`}
+                            className={`w-full h-full object-cover ${
+                              !isVideoEnabled ? "hidden" : ""
+                            }`}
                           />
                           {!isVideoEnabled && (
                             <div className="flex items-center justify-center w-full h-full bg-gray-700">
@@ -1151,7 +1297,9 @@ const CommunicationComponent = ({
                         <div className="flex items-center justify-center w-full h-full bg-gray-700">
                           <div className="text-center">
                             <Video className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                            <p className="text-sm text-gray-400">Initializing camera...</p>
+                            <p className="text-sm text-gray-400">
+                              Initializing camera...
+                            </p>
                           </div>
                         </div>
                       )}
@@ -1169,39 +1317,43 @@ const CommunicationComponent = ({
                   )}
 
                   {/* Remote Videos */}
-                  {Array.from(callParticipants.entries()).map(([participantId, participant]) =>
-                    participantId !== userId && (
-                      <div
-                        key={participantId}
-                        className="relative bg-gray-800 rounded-lg overflow-hidden min-h-[200px] flex items-center justify-center"
-                      >
-                        <video
-                          id={`remote-video-${participantId}`}
-                          autoPlay
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        {remoteVideosRef.current.get(participantId)?.needsPlay && (
-                          <button
-                            onClick={() => playRemoteVideo(participantId)}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 p-3 rounded-full"
-                            title={`Start video for ${participant.userName}`}
-                          >
-                            <Video className="w-6 h-6" />
-                          </button>
-                        )}
-                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 px-2 py-1 rounded text-sm">
-                          {participant.userName}
-                        </div>
+                  {Array.from(callParticipants.entries()).map(
+                    ([participantId, participant]) =>
+                      participantId !== userId && (
+                        <div
+                          key={participantId}
+                          className="relative bg-gray-800 rounded-lg overflow-hidden min-h-[200px] flex items-center justify-center"
+                        >
+                          <video
+                            id={`remote-video-${participantId}`}
+                            autoPlay
+                            playsInline
+                            className="w-full h-full object-cover"
+                          />
+                          {remoteVideosRef.current.get(participantId)
+                            ?.needsPlay && (
+                            <button
+                              onClick={() => playRemoteVideo(participantId)}
+                              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 p-3 rounded-full"
+                              title={`Start video for ${participant.userName}`}
+                            >
+                              <Video className="w-6 h-6" />
+                            </button>
+                          )}
+                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 px-2 py-1 rounded text-sm">
+                            {participant.userName}
+                          </div>
 
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center opacity-50">
-                            <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                            <p className="text-sm text-gray-400">{participant.userName}</p>
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center opacity-50">
+                              <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                              <p className="text-sm text-gray-400">
+                                {participant.userName}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
+                      )
                   )}
 
                   {/* Placeholder for waiting participants */}
@@ -1209,7 +1361,9 @@ const CommunicationComponent = ({
                     <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px]">
                       <div className="text-center">
                         <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                        <p className="text-sm text-gray-400">Waiting to join...</p>
+                        <p className="text-sm text-gray-400">
+                          Waiting to join...
+                        </p>
                         <button
                           onClick={joinVideoCall}
                           className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
@@ -1225,7 +1379,9 @@ const CommunicationComponent = ({
                     <div className="absolute top-4 right-4 bg-black bg-opacity-75 px-3 py-2 rounded text-xs">
                       <div>WebSocket: {isConnected ? "✓" : "✗"}</div>
                       <div>Local Stream: {localStream.current ? "✓" : "✗"}</div>
-                      <div>Peer Connections: {peerConnections.current.size}</div>
+                      <div>
+                        Peer Connections: {peerConnections.current.size}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1241,7 +1397,12 @@ const CommunicationComponent = ({
               <h3 className="text-lg font-medium mb-4">Edit Message</h3>
               <textarea
                 value={editingMessage.content}
-                onChange={(e) => setEditingMessage({ ...editingMessage, content: e.target.value })}
+                onChange={(e) =>
+                  setEditingMessage({
+                    ...editingMessage,
+                    content: e.target.value,
+                  })
+                }
                 className="w-full p-3 bg-gray-700 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows="3"
               />
@@ -1253,7 +1414,9 @@ const CommunicationComponent = ({
                   Cancel
                 </button>
                 <button
-                  onClick={() => editMessage(editingMessage._id, editingMessage.content)}
+                  onClick={() =>
+                    editMessage(editingMessage._id, editingMessage.content)
+                  }
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
                 >
                   Save

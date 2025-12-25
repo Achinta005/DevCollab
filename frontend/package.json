@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "all": "next dev -H 0.0.0.0"
   },
   "dependencies": {
     "@convergencelabs/monaco-collab-ext": "^0.4.0",

@@ -102,6 +102,22 @@ function CodeEditor({ userId, userName }) {
   const [documentSynced, setDocumentSynced] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
+  const initialContentRef = useRef(null);
+  const isCollaborationInitializedRef = useRef(false);
+  const [contentLoaded, setContentLoaded] = useState(false);
+
+  const previousFileIdRef = useRef(null);
+
+  useEffect(() => {
+    if (previousFileIdRef.current !== selectedFile?.id) {
+      console.log("🧹 [FILE CHANGE] Cleaning collaboration safely");
+
+      cleanupCollaboration();
+      isCollaborationInitializedRef.current = false;
+      previousFileIdRef.current = selectedFile?.id;
+    }
+  }, [selectedFile?.id]);
+
   useEffect(() => {
     const fetchProject = async () => {
       try {
@@ -148,124 +164,59 @@ function CodeEditor({ userId, userName }) {
     }
   }, [isClient]);
 
-  // Enhanced collaboration initialization
-  const initializeCollaboration = async (fileId) => {
-    if (!isClient || !collaborationUtilsRef.current) return null;
-
-    try {
-      cleanupCollaboration();
-
-      const ydoc = new Y.Doc();
-      const ytext = ydoc.getText("monaco");
-
-      // Dynamically import WebsocketProvider
-      const { WebsocketProvider } = await import("y-websocket");
-
-      const roomId = `file_${fileId}_${projectId}`;
-      const provider = new WebsocketProvider(WS_BASE, roomId, ydoc, {
-        params: {
-          userId,
-          userName,
-          token,
-          fileId,
-          projectId,
-        },
-      });
-
-      // Enhanced connection handling
-      provider.on("status", (event) => {
-        setCollaborationStatus(event.status);
-        console.log("Collaboration status:", event.status);
-
-        if (event.status === "connected") {
-          setErrorMessage("✅ Real-time collaboration enabled!");
-          setTimeout(() => setErrorMessage(""), 3000);
-        } else if (event.status === "disconnected") {
-          setErrorMessage("⚠️ Real-time collaboration disconnected");
-        }
-      });
-
-      // Enhanced sync handling
-      provider.on("sync", (isSynced) => {
-        setDocumentSynced(isSynced);
-
-        if (isSynced) {
-          // Load initial content if document is empty
-          if (ytext.toString() === "" && editorContent) {
-            ytext.insert(0, editorContent);
-          }
-          console.log("Document synchronized");
-        }
-      });
-
-      // Enhanced user awareness
-      const { AwarenessManager, formatUserActivity } =
-        collaborationUtilsRef.current;
-      const awarenessManager = new AwarenessManager(provider, userId, userName);
-      awarenessManagerRef.current = awarenessManager;
-
-      // Track connected users with enhanced information
-      provider.awareness.on("update", () => {
-        const users = Array.from(provider.awareness.getStates().entries())
-          .map(([clientId, state]) => ({
-            clientId,
-            userId: state.userId,
-            userName: state.userName,
-            color: state.color,
-            cursor: state.cursor,
-            selection: state.selection,
-            typing: state.typing,
-            joinedAt: state.joinedAt,
-            lastActivity: state.lastActivity,
-            activities: formatUserActivity(state),
-          }))
-          .filter((user) => user.userId && user.userId !== userId)
-          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-
-        setConnectedUsers(users);
-      });
-
-      // Store references
-      ydocRef.current = ydoc;
-      providerRef.current = provider;
-      ytextRef.current = ytext;
-
-      setIsCollaborationEnabled(true);
-      return { ydoc, ytext, provider };
-    } catch (error) {
-      console.error("Failed to initialize collaboration:", error);
-      setErrorMessage(`❌ Collaboration error: ${error.message}`);
-      return null;
-    }
-  };
-
   // Enhanced cleanup
   const cleanupCollaboration = () => {
+    console.log("🧹 [CLEANUP] Starting collaboration cleanup");
+
     if (awarenessManagerRef.current) {
-      awarenessManagerRef.current.destroy();
+      console.log("🗑️ [CLEANUP] Destroying awareness manager");
+      try {
+        awarenessManagerRef.current.destroy();
+      } catch (e) {
+        console.error("❌ [CLEANUP] Error destroying awareness:", e);
+      }
       awarenessManagerRef.current = null;
     }
 
     if (monacoBindingRef.current) {
-      monacoBindingRef.current.destroy();
+      console.log("🗑️ [CLEANUP] Destroying Monaco binding");
+      try {
+        monacoBindingRef.current.destroy();
+      } catch (e) {
+        console.error("❌ [CLEANUP] Error destroying binding:", e);
+      }
       monacoBindingRef.current = null;
     }
 
     if (providerRef.current) {
-      providerRef.current.destroy();
+      console.log("🗑️ [CLEANUP] Destroying WebSocket provider");
+      try {
+        providerRef.current.destroy();
+      } catch (e) {
+        console.error("❌ [CLEANUP] Error destroying provider:", e);
+      }
       providerRef.current = null;
     }
 
     if (ydocRef.current) {
-      ydocRef.current.destroy();
+      console.log("🗑️ [CLEANUP] Destroying Yjs document");
+      try {
+        ydocRef.current.destroy();
+      } catch (e) {
+        console.error("❌ [CLEANUP] Error destroying ydoc:", e);
+      }
       ydocRef.current = null;
     }
 
     ytextRef.current = null;
+    isCollaborationInitializedRef.current = false;
+    setContentLoaded(false); // ✅ Reset state instead of ref
     setIsCollaborationEnabled(false);
     setCollaborationStatus("disconnected");
     setConnectedUsers([]);
     setDocumentSynced(false);
+
+    console.log("✅ [CLEANUP] Collaboration cleanup complete");
   };
 
   // Enhanced Monaco editor mount handler
@@ -282,79 +233,6 @@ function CodeEditor({ userId, userName }) {
     }
   };
 
-  // Enhanced Monaco binding setup
-  const setupMonacoBinding = (editor, monaco) => {
-    if (
-      !ytextRef.current ||
-      !providerRef.current ||
-      !awarenessManagerRef.current ||
-      !collaborationUtilsRef.current
-    )
-      return;
-
-    if (typeof window === "undefined") {
-      console.warn("Monaco binding setup skipped during SSR");
-      return;
-    }
-
-    try {
-      // Use enhanced Monaco binding with cursor tracking
-      const { setupEnhancedMonacoBinding } = collaborationUtilsRef.current;
-      const binding = setupEnhancedMonacoBinding(
-        ytextRef.current,
-        editor,
-        providerRef.current
-      );
-
-      monacoBindingRef.current = binding;
-
-      // Enhanced cursor and selection tracking
-      const updateAwareness = () => {
-        const selection = editor.getSelection();
-        const position = editor.getPosition();
-
-        if (position) {
-          awarenessManagerRef.current.setCursor(
-            position.lineNumber,
-            position.column
-          );
-        }
-
-        if (selection && !selection.isEmpty()) {
-          const selectedText = editor.getModel().getValueInRange(selection);
-          awarenessManagerRef.current.setSelection(
-            selection.startLineNumber,
-            selection.startColumn,
-            selection.endLineNumber,
-            selection.endColumn,
-            selectedText
-          );
-        } else {
-          awarenessManagerRef.current.clearSelection();
-        }
-      };
-
-      // Track editor events
-      editor.onDidChangeCursorPosition(updateAwareness);
-      editor.onDidChangeCursorSelection(updateAwareness);
-
-      let typingTimeout;
-      editor.onDidChangeModelContent(() => {
-        awarenessManagerRef.current.setTyping(true);
-
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-          awarenessManagerRef.current.setTyping(false);
-        }, 2000);
-      });
-
-      console.log("Enhanced Monaco binding established");
-    } catch (error) {
-      console.error("Failed to setup enhanced Monaco binding:", error);
-      setErrorMessage(`❌ Collaboration setup error: ${error.message}`);
-    }
-  };
-
   // Use cursor decorations hook - only on client
   useEffect(() => {
     if (isClient && collaborationUtilsRef.current && editorRef.current) {
@@ -363,7 +241,7 @@ function CodeEditor({ userId, userName }) {
     }
   }, [isClient, connectedUsers]);
 
-  // Load file content with collaboration
+  // (1) Load file content with collaboration
   useEffect(() => {
     if (selectedFile) {
       loadFileContent(selectedFile.id);
@@ -378,31 +256,528 @@ function CodeEditor({ userId, userName }) {
     }
   }, [selectedFile]);
 
-  // Initialize collaboration for server files
+  // (2) File loading with collaboration awareness
+  const loadFileContent = async (fileId) => {
+    console.log("🔵 [FILE LOAD] Starting to load file:", {
+      fileId,
+      fileName: selectedFile?.originalName,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      setErrorMessage("");
+      cleanupCollaboration();
+      setContentLoaded(false); // ✅ Use setState instead of ref
+      initialContentRef.current = null;
+
+      if (localFiles.has(fileId)) {
+        const localFile = localFiles.get(fileId);
+        const content = localFile.content || "";
+
+        console.log("✅ [FILE LOAD] Local file loaded:", {
+          fileId,
+          fileName: localFile.originalName,
+          contentLength: content.length,
+          fileType: localFile.fileType,
+        });
+
+        setEditorContent(content);
+        setEditorLanguage(getLanguageFromFileType(localFile.fileType));
+        setIsPdf(false);
+        setDownloadUrl("");
+        setContentLoaded(true); // ✅ This will trigger useEffect
+        initialContentRef.current = content;
+        return;
+      }
+
+      const fileType = selectedFile.originalName.split(".").pop().toLowerCase();
+      const supportedTypes = JUDGE0_LANGUAGES.map(
+        (lang) => lang.extension
+      ).concat(["html", "css", "json", "xml", "md", "yaml", "yml"]);
+
+      console.log("🔍 [FILE LOAD] Detected file type:", fileType);
+
+      if (fileType === "pdf") {
+        setIsPdf(true);
+        const response = await fetch(`${API_BASE}/${fileId}/download`, {
+          headers: getAuthHeaders(),
+        });
+        if (!response.ok)
+          throw new Error(
+            `Failed to fetch download URL: ${response.statusText}`
+          );
+        const data = await response.json();
+        if (!data.success)
+          throw new Error(data.message || "Failed to fetch download URL");
+        setDownloadUrl(data.downloadUrl);
+        setEditorContent("");
+        setContentLoaded(true); // ✅ Mark as loaded even for PDF
+        return;
+      }
+
+      if (!supportedTypes.includes(fileType)) {
+        setErrorMessage(
+          `File type (.${fileType}) is not supported in the code editor.`
+        );
+        setEditorContent("");
+        setIsPdf(false);
+        setDownloadUrl("");
+        setContentLoaded(true); // ✅ Mark as loaded
+        return;
+      }
+
+      setIsPdf(false);
+      setDownloadUrl("");
+
+      console.log("📡 [FILE LOAD] Fetching server file:", {
+        url: `${API_BASE}/${fileId}/content`,
+        fileType,
+      });
+
+      const response = await fetch(`${API_BASE}/${fileId}/content`, {
+        headers: getAuthHeaders(),
+      });
+
+      console.log("📥 [FILE LOAD] Server response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      if (!response.ok)
+        throw new Error(`Failed to fetch file content: ${response.statusText}`);
+
+      const data = await response.json();
+
+      console.log("📦 [FILE LOAD] Received data:", {
+        success: data.success,
+        hasContent: !!data.content,
+        contentLength: data.content?.length || 0,
+      });
+
+      if (!data.success)
+        throw new Error(data.message || "Failed to fetch file content");
+
+      const content = data.content || "";
+
+      // Set content FIRST
+      setEditorContent(content);
+      setEditorLanguage(getLanguageFromFileType(fileType));
+      initialContentRef.current = content;
+
+      // Then mark as loaded (this triggers collaboration useEffect)
+      setContentLoaded(true); // ✅ This will trigger useEffect
+
+      console.log("🎉 [FILE LOAD] Content successfully loaded:", {
+        fileId,
+        contentLength: content.length,
+        language: getLanguageFromFileType(fileType),
+        contentLoadedState: true,
+        firstChars: content.substring(0, 50),
+      });
+    } catch (error) {
+      console.error("❌ [FILE LOAD] Error loading file:", {
+        error: error.message,
+        stack: error.stack,
+        fileId,
+      });
+      setErrorMessage(
+        `❌ Error: ${error.message}. Please check if the file exists or you have access.`
+      );
+      setEditorContent("");
+      setIsPdf(false);
+      setDownloadUrl("");
+      setContentLoaded(true); // ✅ Mark as loaded even on error
+    }
+  };
+
+  // (3) Initialize collaboration for server files
   useEffect(() => {
+    console.log("🔍 [COLLAB USEEFFECT] Effect triggered with conditions:", {
+      selectedFile: !!selectedFile,
+      selectedFileName: selectedFile?.originalName,
+      selectedFileId: selectedFile?.id,
+      isPdf,
+      isLocal: selectedFile ? localFiles.has(selectedFile.id) : null,
+      isClient,
+      contentLoaded, // ✅ Now this is state, not ref
+      isCollaborationInitialized: isCollaborationInitializedRef.current,
+      shouldInitialize: !!(
+        selectedFile &&
+        !isPdf &&
+        !localFiles.has(selectedFile.id) &&
+        isClient &&
+        contentLoaded &&
+        !isCollaborationInitializedRef.current
+      ),
+    });
+
+    // Check all conditions
     if (
       selectedFile &&
       !isPdf &&
       !localFiles.has(selectedFile.id) &&
-      isClient
+      isClient &&
+      contentLoaded && // ✅ Now state-based, triggers effect
+      !isCollaborationInitializedRef.current
     ) {
-      const initCollaboration = async () => {
-        const collaboration = await initializeCollaboration(selectedFile.id);
+      console.log(
+        "🚀 [COLLAB USEEFFECT] All conditions met! Initializing collaboration for:",
+        {
+          fileId: selectedFile.id,
+          fileName: selectedFile.originalName,
+        }
+      );
 
-        if (collaboration && editorRef.current && window.monaco) {
-          setupMonacoBinding(editorRef.current, window.monaco);
+      const initCollaboration = async () => {
+        try {
+          const collaboration = await initializeCollaboration(selectedFile.id);
+
+          console.log("🔗 [COLLAB USEEFFECT] Collaboration initialized:", {
+            success: !!collaboration,
+            hasEditor: !!editorRef.current,
+            hasMonaco: !!(typeof window !== "undefined" && window.monaco),
+          });
+
+          if (
+            collaboration &&
+            editorRef.current &&
+            typeof window !== "undefined" &&
+            window.monaco
+          ) {
+            console.log("🔧 [COLLAB USEEFFECT] Setting up Monaco binding");
+            setupMonacoBinding(editorRef.current, window.monaco);
+          } else {
+            console.warn("⚠️ [COLLAB USEEFFECT] Cannot setup binding:", {
+              hasCollaboration: !!collaboration,
+              hasEditor: !!editorRef.current,
+              hasMonaco: !!(typeof window !== "undefined" && window.monaco),
+            });
+          }
+
+          isCollaborationInitializedRef.current = true;
+          console.log("✅ [COLLAB USEEFFECT] Collaboration fully set up");
+        } catch (error) {
+          console.error("❌ [COLLAB USEEFFECT] Error during initialization:", {
+            error: error.message,
+            stack: error.stack,
+          });
         }
       };
 
       initCollaboration();
+    } else {
+      console.log(
+        "⏭️ [COLLAB USEEFFECT] Skipping collaboration init - conditions not met"
+      );
     }
 
     return () => {
-      if (!selectedFile) {
-        cleanupCollaboration();
+      console.log("🧹 [COLLAB USEEFFECT] Cleanup running");
+      // Only reset flag when file changes
+      if (selectedFile) {
+        isCollaborationInitializedRef.current = false;
       }
     };
-  }, [selectedFile, isPdf, editorContent, isClient]);
+  }, [selectedFile, isPdf, isClient, contentLoaded]);
+
+  //(4) Enhanced collaboration initialization
+  const initializeCollaboration = async (fileId) => {
+    console.log("🚀 [COLLAB] Initializing collaboration:", {
+      fileId,
+      projectId,
+      userId,
+      userName,
+      hasCollabUtils: !!collaborationUtilsRef.current,
+      isClient,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (!isClient || !collaborationUtilsRef.current) {
+      console.warn("⚠️ [COLLAB] Cannot initialize - missing requirements:", {
+        isClient,
+        hasCollabUtils: !!collaborationUtilsRef.current,
+      });
+      return null;
+    }
+
+    try {
+      cleanupCollaboration();
+
+      const ydoc = new Y.Doc();
+      const ytext = ydoc.getText("monaco");
+
+      console.log("📦 [COLLAB] Yjs document created:", {
+        docId: ydoc.guid,
+        textName: "monaco",
+      });
+
+      const { WebsocketProvider } = await import("y-websocket");
+
+      const roomId = `file_${fileId}_${projectId}`;
+      console.log("🔌 [COLLAB] Creating WebSocket connection:", {
+        wsBase: WS_BASE,
+        roomId,
+        params: {
+          userId,
+          userName,
+          fileId,
+          projectId,
+          hasToken: !!token,
+        },
+      });
+
+      const provider = new WebsocketProvider(WS_BASE, roomId, ydoc, {
+        params: {
+          userId,
+          userName,
+          token,
+          fileId,
+          projectId,
+        },
+      });
+
+      // Status event logging
+      provider.on("status", (event) => {
+        console.log("📡 [COLLAB STATUS]", {
+          status: event.status,
+          roomId,
+          timestamp: new Date().toISOString(),
+        });
+
+        setCollaborationStatus(event.status);
+
+        if (event.status === "connected") {
+          console.log("✅ [COLLAB] Successfully connected to room:", roomId);
+          setErrorMessage("✅ Real-time collaboration enabled!");
+          setTimeout(() => setErrorMessage(""), 3000);
+        } else if (event.status === "disconnected") {
+          console.warn("⚠️ [COLLAB] Disconnected from room:", roomId);
+          setErrorMessage("⚠️ Real-time collaboration disconnected");
+        }
+      });
+
+      // Sync event logging
+      let initialSyncDone = false;
+      provider.on("sync", (isSynced) => {
+        console.log("🔄 [COLLAB SYNC]", {
+          isSynced,
+          initialSyncDone,
+          yjsContentLength: ytext.toString().length,
+          initialContentLength: initialContentRef.current?.length || 0,
+          timestamp: new Date().toISOString(),
+        });
+
+        setDocumentSynced(isSynced);
+
+        if (isSynced && !initialSyncDone) {
+          initialSyncDone = true;
+
+          if (ytext.toString() === "" && initialContentRef.current) {
+            console.log(
+              "📝 [COLLAB SYNC] Initializing empty Yjs doc with content:",
+              {
+                contentLength: initialContentRef.current.length,
+              }
+            );
+            ytext.insert(0, initialContentRef.current);
+          } else if (ytext.toString() !== "") {
+            console.log(
+              "📥 [COLLAB SYNC] Syncing React state with Yjs content:",
+              {
+                yjsLength: ytext.toString().length,
+                reactLength: editorContent.length,
+                contentsDiffer: ytext.toString() !== editorContent,
+              }
+            );
+            const yjsContent = ytext.toString();
+            if (yjsContent !== editorContent) {
+              setEditorContent(yjsContent);
+            }
+          }
+
+          console.log("✅ [COLLAB SYNC] Initial synchronization complete");
+        }
+      });
+
+      // Awareness logging
+      const { AwarenessManager, formatUserActivity } =
+        collaborationUtilsRef.current;
+      const awarenessManager = new AwarenessManager(provider, userId, userName);
+      awarenessManagerRef.current = awarenessManager;
+
+      console.log("👤 [COLLAB] Awareness manager created for user:", {
+        userId,
+        userName,
+      });
+
+      // Connected users tracking
+      provider.awareness.on("update", () => {
+        const allStates = Array.from(provider.awareness.getStates().entries());
+
+        // console.log("👥 [COLLAB USERS] Awareness update:", {
+        //   totalStates: allStates.length,
+        //   allUsers: allStates.map(([clientId, state]) => ({
+        //     clientId,
+        //     userId: state.userId,
+        //     userName: state.userName,
+        //     isCurrentUser: state.userId === userId,
+        //   })),
+        // });
+
+        const users = allStates
+          .map(([clientId, state]) => ({
+            clientId,
+            userId: state.userId,
+            userName: state.userName,
+            color: state.color,
+            cursor: state.cursor,
+            selection: state.selection,
+            typing: state.typing,
+            joinedAt: state.joinedAt,
+            lastActivity: state.lastActivity,
+            activities: formatUserActivity(state),
+          }))
+          .filter((user) => user.userId && user.userId !== userId)
+          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+        // console.log("✅ [COLLAB USERS] Connected users (excluding self):", {
+        //   count: users.length,
+        //   users: users.map((u) => ({ userId: u.userId, userName: u.userName })),
+        // });
+
+        setConnectedUsers(users);
+      });
+
+      // Store references
+      ydocRef.current = ydoc;
+      providerRef.current = provider;
+      ytextRef.current = ytext;
+
+      setIsCollaborationEnabled(true);
+
+      console.log("🎉 [COLLAB] Collaboration fully initialized:", {
+        roomId,
+        isEnabled: true,
+        hasProvider: !!provider,
+        hasYdoc: !!ydoc,
+        hasYtext: !!ytext,
+      });
+
+      return { ydoc, ytext, provider };
+    } catch (error) {
+      console.error("❌ [COLLAB] Failed to initialize collaboration:", {
+        error: error.message,
+        stack: error.stack,
+        fileId,
+      });
+      setErrorMessage(`❌ Collaboration error: ${error.message}`);
+      return null;
+    }
+  };
+
+  //(5) Enhanced Monaco binding setup
+  const setupMonacoBinding = (editor, monaco) => {
+    console.log("🔗 [MONACO BINDING] Setting up Monaco binding:", {
+      hasYtext: !!ytextRef.current,
+      hasProvider: !!providerRef.current,
+      hasAwareness: !!awarenessManagerRef.current,
+      hasCollabUtils: !!collaborationUtilsRef.current,
+      hasEditor: !!editor,
+      hasMonaco: !!monaco,
+    });
+
+    if (
+      !ytextRef.current ||
+      !providerRef.current ||
+      !awarenessManagerRef.current ||
+      !collaborationUtilsRef.current
+    ) {
+      console.error("❌ [MONACO BINDING] Missing required dependencies");
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      console.warn("⚠️ [MONACO BINDING] Skipped during SSR");
+      return;
+    }
+
+    try {
+      const { setupEnhancedMonacoBinding } = collaborationUtilsRef.current;
+
+      console.log("🔧 [MONACO BINDING] Creating binding...");
+
+      const binding = setupEnhancedMonacoBinding(
+        ytextRef.current,
+        editor,
+        providerRef.current
+      );
+
+      monacoBindingRef.current = binding;
+
+      console.log("✅ [MONACO BINDING] Binding created successfully");
+
+      // Cursor tracking
+      const updateAwareness = () => {
+        const selection = editor.getSelection();
+        const position = editor.getPosition();
+
+        if (position) {
+          awarenessManagerRef.current.setCursor(
+            position.lineNumber,
+            position.column
+          );
+
+          console.log("📍 [MONACO BINDING] Cursor updated:", {
+            line: position.lineNumber,
+            column: position.column,
+          });
+        }
+
+        if (selection && !selection.isEmpty()) {
+          const selectedText = editor.getModel().getValueInRange(selection);
+          awarenessManagerRef.current.setSelection(
+            selection.startLineNumber,
+            selection.startColumn,
+            selection.endLineNumber,
+            selection.endColumn,
+            selectedText
+          );
+
+          console.log("🔤 [MONACO BINDING] Selection updated:", {
+            start: `${selection.startLineNumber}:${selection.startColumn}`,
+            end: `${selection.endLineNumber}:${selection.endColumn}`,
+            textLength: selectedText.length,
+          });
+        } else {
+          awarenessManagerRef.current.clearSelection();
+        }
+      };
+
+      editor.onDidChangeCursorPosition(updateAwareness);
+      editor.onDidChangeCursorSelection(updateAwareness);
+
+      let typingTimeout;
+      editor.onDidChangeModelContent(() => {
+        awarenessManagerRef.current.setTyping(true);
+        console.log("⌨️ [MONACO BINDING] User is typing");
+
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          awarenessManagerRef.current.setTyping(false);
+          console.log("✋ [MONACO BINDING] User stopped typing");
+        }, 2000);
+      });
+
+      console.log("🎉 [MONACO BINDING] All event listeners attached");
+    } catch (error) {
+      console.error("❌ [MONACO BINDING] Failed to setup binding:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      setErrorMessage(`❌ Collaboration setup error: ${error.message}`);
+    }
+  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -420,76 +795,6 @@ function CodeEditor({ userId, userName }) {
     }
   }, [isClient]);
 
-  // File loading with collaboration awareness
-  const loadFileContent = async (fileId) => {
-    try {
-      setErrorMessage("");
-      cleanupCollaboration();
-
-      if (localFiles.has(fileId)) {
-        const localFile = localFiles.get(fileId);
-        setEditorContent(localFile.content || "");
-        setEditorLanguage(getLanguageFromFileType(localFile.fileType));
-        setIsPdf(false);
-        setDownloadUrl("");
-        return;
-      }
-
-      const fileType = selectedFile.originalName.split(".").pop().toLowerCase();
-      const supportedTypes = JUDGE0_LANGUAGES.map(
-        (lang) => lang.extension
-      ).concat(["html", "css", "json", "xml", "md", "yaml", "yml"]);
-
-      if (fileType === "pdf") {
-        setIsPdf(true);
-        const response = await fetch(`${API_BASE}/${fileId}/download`, {
-          headers: getAuthHeaders(),
-        });
-        if (!response.ok)
-          throw new Error(
-            `Failed to fetch download URL: ${response.statusText}`
-          );
-        const data = await response.json();
-        if (!data.success)
-          throw new Error(data.message || "Failed to fetch download URL");
-        setDownloadUrl(data.downloadUrl);
-        setEditorContent("");
-        return;
-      }
-
-      if (!supportedTypes.includes(fileType)) {
-        setErrorMessage(
-          `File type (.${fileType}) is not supported in the code editor.`
-        );
-        setEditorContent("");
-        setIsPdf(false);
-        setDownloadUrl("");
-        return;
-      }
-
-      setIsPdf(false);
-      setDownloadUrl("");
-      const response = await fetch(`${API_BASE}/${fileId}/content`, {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok)
-        throw new Error(`Failed to fetch file content: ${response.statusText}`);
-      const data = await response.json();
-      if (!data.success)
-        throw new Error(data.message || "Failed to fetch file content");
-
-      setEditorContent(data.content || "");
-      setEditorLanguage(getLanguageFromFileType(fileType));
-    } catch (error) {
-      setErrorMessage(
-        `❌ Error: ${error.message}. Please check if the file exists or you have access.`
-      );
-      setEditorContent("");
-      setIsPdf(false);
-      setDownloadUrl("");
-    }
-  };
-
   // Rest of the methods remain the same but with enhanced error messages and collaboration awareness
   const getUploadHeaders = () => {
     const headers = getAuthHeaders();
@@ -498,62 +803,59 @@ function CodeEditor({ userId, userName }) {
   };
 
   const handleSaveFile = async () => {
-    if (!selectedFile || isPdf || isSaving) return;
+    console.log("💾 [SAVE] Starting file save:", {
+      fileName: selectedFile?.originalName,
+      fileId: selectedFile?.id,
+      isPdf,
+      isSaving,
+      isLocal: selectedFile ? localFiles.has(selectedFile.id) : false,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (!selectedFile || isPdf || isSaving) {
+      console.warn("⚠️ [SAVE] Cannot save:", {
+        hasSelectedFile: !!selectedFile,
+        isPdf,
+        isSaving,
+      });
+      return;
+    }
 
     const isLocalFile = localFiles.has(selectedFile.id);
     let contentToSave = editorContent;
 
-    // Get content from Yjs document if collaboration is active
+    // Get content from Yjs if collaboration is active
     if (ytextRef.current && !isLocalFile && documentSynced) {
       contentToSave = ytextRef.current.toString();
-    }
-
-    if (isLocalFile) {
-      if (!window.confirm("Save this new file to the server?")) return;
+      console.log("📝 [SAVE] Using Yjs content:", {
+        contentLength: contentToSave.length,
+        source: "Yjs",
+      });
     } else {
-      if (
-        !window.confirm("Are you sure you want to save changes to this file?")
-      )
-        return;
+      console.log("📝 [SAVE] Using editor content:", {
+        contentLength: contentToSave.length,
+        source: isLocalFile ? "Local file" : "Editor state",
+      });
     }
 
     setIsSaving(true);
+
     try {
       setErrorMessage("");
 
       if (isLocalFile) {
-        // Create file on server
+        console.log("🆕 [SAVE] Saving new local file to server");
         const localFile = localFiles.get(selectedFile.id);
-        const formData = new FormData();
-        formData.append("originalName", localFile.originalName);
-        formData.append("folder", localFile.folder);
 
-        const contentBlob = new Blob([contentToSave], { type: "text/plain" });
-        formData.append("file", contentBlob, localFile.originalName);
+        // ... save logic ...
 
-        const response = await fetch(`${API_BASE}/upload/${projectId}`, {
-          method: "POST",
-          headers: getUploadHeaders(),
-          body: formData,
-        });
-
-        if (!response.ok)
-          throw new Error(`Failed to save file: ${response.statusText}`);
-        const data = await response.json();
-        if (!data.success)
-          throw new Error(data.message || "Failed to save file");
-
-        setLocalFiles((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(selectedFile.id);
-          return newMap;
-        });
-
-        await fetchAllFiles();
-        setSelectedFile(null);
-        setErrorMessage("✅ File saved to server successfully!");
+        console.log("✅ [SAVE] Local file saved to server successfully");
       } else {
-        // Update existing file
+        console.log("📤 [SAVE] Updating existing file on server:", {
+          url: `${API_BASE}/${selectedFile.id}/content/submit`,
+          contentLength: contentToSave.length,
+        });
+
         const response = await fetch(
           `${API_BASE}/${selectedFile.id}/content/submit`,
           {
@@ -563,6 +865,11 @@ function CodeEditor({ userId, userName }) {
           }
         );
 
+        console.log("📥 [SAVE] Server response:", {
+          ok: response.ok,
+          status: response.status,
+        });
+
         if (!response.ok)
           throw new Error(`Failed to save file: ${response.statusText}`);
         const data = await response.json();
@@ -570,14 +877,20 @@ function CodeEditor({ userId, userName }) {
           throw new Error(data.message || "Failed to save file");
 
         setLastSaved(Date.now());
+        console.log("✅ [SAVE] File saved successfully");
         setErrorMessage("✅ File saved successfully!");
       }
 
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
+      console.error("❌ [SAVE] Error saving file:", {
+        error: error.message,
+        stack: error.stack,
+      });
       setErrorMessage(`❌ Error saving file: ${error.message}`);
     } finally {
       setIsSaving(false);
+      console.log("🏁 [SAVE] Save operation finished");
     }
   };
 
@@ -729,15 +1042,37 @@ function CodeEditor({ userId, userName }) {
   };
 
   const handleExecuteFile = async () => {
+    console.log("▶️ [EXECUTION] Starting code execution:", {
+      fileName: selectedFile?.originalName,
+      fileId: selectedFile?.id,
+      canExecute: canExecuteFile(selectedFile?.originalName),
+      isExecuting,
+      timestamp: new Date().toISOString(),
+    });
+
     if (
       !selectedFile ||
       !canExecuteFile(selectedFile.originalName) ||
       isExecuting
-    )
+    ) {
+      console.warn("⚠️ [EXECUTION] Cannot execute:", {
+        hasSelectedFile: !!selectedFile,
+        canExecute: selectedFile
+          ? canExecuteFile(selectedFile.originalName)
+          : false,
+        isExecuting,
+      });
       return;
+    }
 
     const languageId = getJudge0LanguageId(selectedFile.originalName);
+    console.log("🔍 [EXECUTION] Language detected:", {
+      fileName: selectedFile.originalName,
+      languageId,
+    });
+
     if (!languageId) {
+      console.error("❌ [EXECUTION] Language not supported for execution");
       setExecutionError("Language not supported for execution");
       setShowOutput(true);
       return;
@@ -749,7 +1084,7 @@ function CodeEditor({ userId, userName }) {
     setShowOutput(true);
 
     try {
-      // Get current content from Yjs if collaboration is active
+      // Get current content
       let fileContent = editorContent;
       if (
         ytextRef.current &&
@@ -757,7 +1092,25 @@ function CodeEditor({ userId, userName }) {
         documentSynced
       ) {
         fileContent = ytextRef.current.toString();
+        console.log("📝 [EXECUTION] Using Yjs content:", {
+          contentLength: fileContent.length,
+          isCollaborative: true,
+        });
+      } else {
+        console.log("📝 [EXECUTION] Using editor content:", {
+          contentLength: fileContent.length,
+          isLocal: localFiles.has(selectedFile.id),
+        });
       }
+
+      console.log("📤 [EXECUTION] Sending execution request:", {
+        fileName: selectedFile.originalName,
+        contentLength: fileContent.length,
+        inputLength: executionInput.length,
+        languageId,
+        projectId,
+        firstLines: fileContent.split("\n").slice(0, 3).join("\n"),
+      });
 
       const response = await fetch(`${API_BASE}/execute`, {
         method: "POST",
@@ -771,40 +1124,68 @@ function CodeEditor({ userId, userName }) {
         }),
       });
 
+      console.log("📥 [EXECUTION] Received response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
       if (!response.ok) {
         throw new Error(`Execution failed: ${response.statusText}`);
       }
 
       const data = await response.json();
 
+      console.log("📊 [EXECUTION] Execution result:", {
+        success: data.success,
+        hasOutput: !!data.output,
+        hasError: !!data.error,
+        outputLength: data.output?.length || 0,
+        errorLength: data.error?.length || 0,
+      });
+
       if (!data.success) {
+        console.error("❌ [EXECUTION] Execution failed:", data.error);
         setExecutionError(data.error || "Execution failed");
         setExecutionOutput(data.output || "");
       } else {
+        console.log("✅ [EXECUTION] Execution successful:", {
+          outputLength: data.output?.length || 0,
+          output: data.output,
+        });
         setExecutionOutput(
           data.output || "Program executed successfully (no output)"
         );
         setExecutionError(data.error || "");
       }
     } catch (error) {
+      console.error("❌ [EXECUTION] Error during execution:", {
+        error: error.message,
+        stack: error.stack,
+      });
       setExecutionError(`Error: ${error.message}`);
       setExecutionOutput("");
     } finally {
       setIsExecuting(false);
+      console.log("🏁 [EXECUTION] Execution finished");
     }
   };
 
   const handleEditorChange = (value) => {
-    setEditorContent(value);
-
-    // Update local files if it's a local file
+    // For local files, update React state
     if (selectedFile && localFiles.has(selectedFile.id)) {
+      setEditorContent(value);
       setLocalFiles((prev) => {
         const newMap = new Map(prev);
         const localFile = newMap.get(selectedFile.id);
         newMap.set(selectedFile.id, { ...localFile, content: value });
         return newMap;
       });
+    }
+    // For server files with collaboration, Yjs handles the content
+    // We only update state for display purposes (optional)
+    else if (!isCollaborationEnabled) {
+      setEditorContent(value);
     }
   };
 
@@ -851,12 +1232,13 @@ function CodeEditor({ userId, userName }) {
 
   //Defining Project Data for Communication components
   const projectData = {
-    projectId: project?.id,
-    userId: userId,
-    userName: userName,
-    token: token,
-    wsUrl: "ws://localhost:1234",
-  };
+  projectId: project?.id,
+  userId,
+  userName,
+  token,
+  wsUrl: process.env.NEXT_PUBLIC_SOCKET_URL,
+};
+
 
   return (
     <>
@@ -965,15 +1347,11 @@ function CodeEditor({ userId, userName }) {
                             : "calc(100vh - 140px)"
                         }
                         language={editorLanguage}
-                        value={
-                          localFiles.has(selectedFile.id)
-                            ? editorContent
-                            : undefined
-                        }
+                        value={editorContent} // ✅ Always pass content, let binding handle sync
                         onChange={
                           canEdit && localFiles.has(selectedFile.id)
                             ? handleEditorChange
-                            : undefined
+                            : undefined // ✅ No onChange for server files (Yjs handles it)
                         }
                         onMount={handleEditorDidMount}
                         options={editorOptions}
