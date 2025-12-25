@@ -23,7 +23,7 @@
     "lucide-react": "^0.536.0",
     "monaco-editor": "^0.52.2",
     "motion": "^12.23.12",
-    "next": "15.4.5",
+    "next": "^16.1.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-easy-crop": "^5.5.0",
@@ -43,7 +43,7 @@
     "@types/react-dom": "^19",
     "css-loader": "^7.1.2",
     "eslint": "^9",
-    "eslint-config-next": "15.4.5",
+    "eslint-config-next": "^16.1.1",
     "style-loader": "^4.0.0",
     "tailwindcss": "^4"
   }
