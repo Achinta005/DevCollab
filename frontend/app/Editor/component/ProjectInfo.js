@@ -142,7 +142,6 @@ const ProjectInfo = ({ projectData }) => {
     e.preventDefault();
 
     try {
-      console.log("data", formData);
       const response = await projectService.updateProject(formData);
 
       if (!response.success) {
@@ -329,7 +328,6 @@ const ProjectInfo = ({ projectData }) => {
       if (!response.success) {
         throw new Error(response.message || "Failed to update role");
       }
-      console.log("res",response);
       // Update with actual permissions from server
       if (response.data?.permissions) {
         setFetchProject((prevProject) => ({

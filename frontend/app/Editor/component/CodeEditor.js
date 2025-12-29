@@ -109,8 +109,6 @@ function CodeEditor({ userId, userName }) {
 
   useEffect(() => {
     if (previousFileIdRef.current !== selectedFile?.id) {
-      console.log("🧹 [FILE CHANGE] Cleaning collaboration safely");
-
       cleanupCollaboration();
       isCollaborationInitializedRef.current = false;
       previousFileIdRef.current = selectedFile?.id;
@@ -168,44 +166,38 @@ function CodeEditor({ userId, userName }) {
 
   // Enhanced cleanup
   const cleanupCollaboration = () => {
-    console.log("🧹 [CLEANUP] Starting collaboration cleanup");
-
     if (awarenessManagerRef.current) {
-      console.log("🗑️ [CLEANUP] Destroying awareness manager");
       try {
         awarenessManagerRef.current.destroy();
       } catch (e) {
-        console.error("❌ [CLEANUP] Error destroying awareness:", e);
+        console.error(" Error destroying awareness:");
       }
       awarenessManagerRef.current = null;
     }
 
     if (monacoBindingRef.current) {
-      console.log("🗑️ [CLEANUP] Destroying Monaco binding");
       try {
         monacoBindingRef.current.destroy();
       } catch (e) {
-        console.error("❌ [CLEANUP] Error destroying binding:", e);
+        console.error(" Error destroying binding:");
       }
       monacoBindingRef.current = null;
     }
 
     if (providerRef.current) {
-      console.log("🗑️ [CLEANUP] Destroying WebSocket provider");
       try {
         providerRef.current.destroy();
       } catch (e) {
-        console.error("❌ [CLEANUP] Error destroying provider:", e);
+        console.error(" Error destroying provider:");
       }
       providerRef.current = null;
     }
 
     if (ydocRef.current) {
-      console.log("🗑️ [CLEANUP] Destroying Yjs document");
       try {
         ydocRef.current.destroy();
       } catch (e) {
-        console.error("❌ [CLEANUP] Error destroying ydoc:", e);
+        console.error("Error destroying ydoc:");
       }
       ydocRef.current = null;
     }
@@ -217,8 +209,6 @@ function CodeEditor({ userId, userName }) {
     setCollaborationStatus("disconnected");
     setConnectedUsers([]);
     setDocumentSynced(false);
-
-    console.log("✅ [CLEANUP] Collaboration cleanup complete");
   };
 
   // Enhanced Monaco editor mount handler
@@ -239,7 +229,6 @@ function CodeEditor({ userId, userName }) {
   useEffect(() => {
     if (isClient && collaborationUtilsRef.current && editorRef.current) {
       const { useCursorDecorations } = collaborationUtilsRef.current;
-      // Note: This might need to be refactored depending on how your hook is implemented
     }
   }, [isClient, connectedUsers]);
 
@@ -260,33 +249,20 @@ function CodeEditor({ userId, userName }) {
 
   // (2) File loading with collaboration awareness
   const loadFileContent = async (fileId) => {
-    console.log("🔵 [FILE LOAD] Starting to load file:", {
-      fileId,
-      fileName: selectedFile?.originalName,
-      timestamp: new Date().toISOString(),
-    });
-
     try {
       setErrorMessage("");
-      setContentLoaded(false); // ✅ Use setState instead of ref
+      setContentLoaded(false);
       initialContentRef.current = null;
 
       if (localFiles.has(fileId)) {
         const localFile = localFiles.get(fileId);
         const content = localFile.content || "";
 
-        console.log("✅ [FILE LOAD] Local file loaded:", {
-          fileId,
-          fileName: localFile.originalName,
-          contentLength: content.length,
-          fileType: localFile.fileType,
-        });
-
         setEditorContent(content);
         setEditorLanguage(getLanguageFromFileType(localFile.fileType));
         setIsPdf(false);
         setDownloadUrl("");
-        setContentLoaded(true); // ✅ This will trigger useEffect
+        setContentLoaded(true);
         initialContentRef.current = content;
         return;
       }
@@ -295,8 +271,6 @@ function CodeEditor({ userId, userName }) {
       const supportedTypes = JUDGE0_LANGUAGES.map(
         (lang) => lang.extension
       ).concat(["html", "css", "json", "xml", "md", "yaml", "yml"]);
-
-      console.log("🔍 [FILE LOAD] Detected file type:", fileType);
 
       if (fileType === "pdf") {
         setIsPdf(true);
@@ -312,7 +286,7 @@ function CodeEditor({ userId, userName }) {
           throw new Error(data.message || "Failed to fetch download URL");
         setDownloadUrl(data.downloadUrl);
         setEditorContent("");
-        setContentLoaded(true); // ✅ Mark as loaded even for PDF
+        setContentLoaded(true);
         return;
       }
 
@@ -323,38 +297,21 @@ function CodeEditor({ userId, userName }) {
         setEditorContent("");
         setIsPdf(false);
         setDownloadUrl("");
-        setContentLoaded(true); // ✅ Mark as loaded
+        setContentLoaded(true);
         return;
       }
 
       setIsPdf(false);
       setDownloadUrl("");
 
-      console.log("📡 [FILE LOAD] Fetching server file:", {
-        url: `${API_BASE}/${fileId}/content`,
-        fileType,
-      });
-
       const response = await fetch(`${API_BASE}/${fileId}/content`, {
         headers: getAuthHeaders(),
-      });
-
-      console.log("📥 [FILE LOAD] Server response:", {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
       });
 
       if (!response.ok)
         throw new Error(`Failed to fetch file content: ${response.statusText}`);
 
       const data = await response.json();
-
-      console.log("📦 [FILE LOAD] Received data:", {
-        success: data.success,
-        hasContent: !!data.content,
-        contentLength: data.content?.length || 0,
-      });
 
       if (!data.success)
         throw new Error(data.message || "Failed to fetch file content");
@@ -366,79 +323,32 @@ function CodeEditor({ userId, userName }) {
       setEditorLanguage(getLanguageFromFileType(fileType));
       initialContentRef.current = content;
 
-      // Then mark as loaded (this triggers collaboration useEffect)
-      setContentLoaded(true); // ✅ This will trigger useEffect
-
-      console.log("🎉 [FILE LOAD] Content successfully loaded:", {
-        fileId,
-        contentLength: content.length,
-        language: getLanguageFromFileType(fileType),
-        contentLoadedState: true,
-        firstChars: content.substring(0, 50),
-      });
+      setContentLoaded(true);
     } catch (error) {
-      console.error("❌ [FILE LOAD] Error loading file:", {
-        error: error.message,
-        stack: error.stack,
-        fileId,
-      });
       setErrorMessage(
         `❌ Error: ${error.message}. Please check if the file exists or you have access.`
       );
       setEditorContent("");
       setIsPdf(false);
       setDownloadUrl("");
-      setContentLoaded(true); // ✅ Mark as loaded even on error
+      setContentLoaded(true);
     }
   };
 
   // (3) Initialize collaboration for server files
   useEffect(() => {
-    console.log("🔍 [COLLAB USEEFFECT] Effect triggered with conditions:", {
-      selectedFile: !!selectedFile,
-      selectedFileName: selectedFile?.originalName,
-      selectedFileId: selectedFile?.id,
-      isPdf,
-      isLocal: selectedFile ? localFiles.has(selectedFile.id) : null,
-      isClient,
-      contentLoaded, // ✅ Now this is state, not ref
-      isCollaborationInitialized: isCollaborationInitializedRef.current,
-      shouldInitialize: !!(
-        selectedFile &&
-        !isPdf &&
-        !localFiles.has(selectedFile.id) &&
-        isClient &&
-        contentLoaded &&
-        !isCollaborationInitializedRef.current
-      ),
-    });
-
     // Check all conditions
     if (
       selectedFile &&
       !isPdf &&
       !localFiles.has(selectedFile.id) &&
       isClient &&
-      contentLoaded && // ✅ Now state-based, triggers effect
+      contentLoaded &&
       !isCollaborationInitializedRef.current
     ) {
-      console.log(
-        "🚀 [COLLAB USEEFFECT] All conditions met! Initializing collaboration for:",
-        {
-          fileId: selectedFile.id,
-          fileName: selectedFile.originalName,
-        }
-      );
-
       const initCollaboration = async () => {
         try {
           const collaboration = await initializeCollaboration(selectedFile.id);
-
-          console.log("🔗 [COLLAB USEEFFECT] Collaboration initialized:", {
-            success: !!collaboration,
-            hasEditor: !!editorRef.current,
-            hasMonaco: !!(typeof window !== "undefined" && window.monaco),
-          });
 
           if (
             collaboration &&
@@ -446,7 +356,6 @@ function CodeEditor({ userId, userName }) {
             typeof window !== "undefined" &&
             window.monaco
           ) {
-            console.log("🔧 [COLLAB USEEFFECT] Setting up Monaco binding");
             setupMonacoBinding(editorRef.current, window.monaco);
           } else {
             console.warn("⚠️ [COLLAB USEEFFECT] Cannot setup binding:", {
@@ -457,7 +366,6 @@ function CodeEditor({ userId, userName }) {
           }
 
           isCollaborationInitializedRef.current = true;
-          console.log("✅ [COLLAB USEEFFECT] Collaboration fully set up");
         } catch (error) {
           console.error("❌ [COLLAB USEEFFECT] Error during initialization:", {
             error: error.message,
@@ -468,13 +376,9 @@ function CodeEditor({ userId, userName }) {
 
       initCollaboration();
     } else {
-      console.log(
-        "⏭️ [COLLAB USEEFFECT] Skipping collaboration init - conditions not met"
-      );
     }
 
     return () => {
-      console.log("🧹 [COLLAB USEEFFECT] Cleanup running");
       // Only reset flag when file changes
       if (selectedFile) {
         isCollaborationInitializedRef.current = false;
@@ -484,16 +388,6 @@ function CodeEditor({ userId, userName }) {
 
   //(4) Enhanced collaboration initialization
   const initializeCollaboration = async (fileId) => {
-    console.log("🚀 [COLLAB] Initializing collaboration:", {
-      fileId,
-      projectId,
-      userId,
-      userName,
-      hasCollabUtils: !!collaborationUtilsRef.current,
-      isClient,
-      timestamp: new Date().toISOString(),
-    });
-
     if (!isClient || !collaborationUtilsRef.current) {
       console.warn("⚠️ [COLLAB] Cannot initialize - missing requirements:", {
         isClient,
@@ -506,25 +400,9 @@ function CodeEditor({ userId, userName }) {
       const ydoc = new Y.Doc();
       const ytext = ydoc.getText("monaco");
 
-      console.log("📦 [COLLAB] Yjs document created:", {
-        docId: ydoc.guid,
-        textName: "monaco",
-      });
-
       const { WebsocketProvider } = await import("y-websocket");
 
       const roomId = `file_${fileId}_${projectId}`;
-      console.log("🔌 [COLLAB] Creating WebSocket connection:", {
-        wsBase: WS_BASE,
-        roomId,
-        params: {
-          userId,
-          userName,
-          fileId,
-          projectId,
-          hasToken: !!token,
-        },
-      });
 
       const provider = new WebsocketProvider(WS_BASE, roomId, ydoc, {
         params: {
@@ -538,16 +416,9 @@ function CodeEditor({ userId, userName }) {
 
       // Status event logging
       provider.on("status", (event) => {
-        console.log("📡 [COLLAB STATUS]", {
-          status: event.status,
-          roomId,
-          timestamp: new Date().toISOString(),
-        });
-
         setCollaborationStatus(event.status);
 
         if (event.status === "connected") {
-          console.log("✅ [COLLAB] Successfully connected to room:", roomId);
           setErrorMessage("✅ Real-time collaboration enabled!");
           setTimeout(() => setErrorMessage(""), 3000);
         } else if (event.status === "disconnected") {
@@ -559,43 +430,19 @@ function CodeEditor({ userId, userName }) {
       // Sync event logging
       let initialSyncDone = false;
       provider.on("sync", (isSynced) => {
-        console.log("🔄 [COLLAB SYNC]", {
-          isSynced,
-          initialSyncDone,
-          yjsContentLength: ytext.toString().length,
-          initialContentLength: initialContentRef.current?.length || 0,
-          timestamp: new Date().toISOString(),
-        });
-
         setDocumentSynced(isSynced);
 
         if (isSynced && !initialSyncDone) {
           initialSyncDone = true;
 
           if (ytext.toString() === "" && initialContentRef.current) {
-            console.log(
-              "📝 [COLLAB SYNC] Initializing empty Yjs doc with content:",
-              {
-                contentLength: initialContentRef.current.length,
-              }
-            );
             ytext.insert(0, initialContentRef.current);
           } else if (ytext.toString() !== "") {
-            console.log(
-              "📥 [COLLAB SYNC] Syncing React state with Yjs content:",
-              {
-                yjsLength: ytext.toString().length,
-                reactLength: editorContent.length,
-                contentsDiffer: ytext.toString() !== editorContent,
-              }
-            );
             const yjsContent = ytext.toString();
             if (yjsContent !== editorContent) {
               setEditorContent(yjsContent);
             }
           }
-
-          console.log("✅ [COLLAB SYNC] Initial synchronization complete");
         }
       });
 
@@ -605,24 +452,9 @@ function CodeEditor({ userId, userName }) {
       const awarenessManager = new AwarenessManager(provider, userId, userName);
       awarenessManagerRef.current = awarenessManager;
 
-      console.log("👤 [COLLAB] Awareness manager created for user:", {
-        userId,
-        userName,
-      });
-
       // Connected users tracking
       provider.awareness.on("update", () => {
         const allStates = Array.from(provider.awareness.getStates().entries());
-
-        console.log("👥 [COLLAB USERS] Awareness update:", {
-          totalStates: allStates.length,
-          allUsers: allStates.map(([clientId, state]) => ({
-            clientId,
-            userId: state.userId,
-            userName: state.userName,
-            isCurrentUser: state.userId === userId,
-          })),
-        });
 
         const users = allStates
           .map(([clientId, state]) => ({
@@ -640,11 +472,6 @@ function CodeEditor({ userId, userName }) {
           .filter((user) => user.userId && user.userId !== userId)
           .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
 
-        console.log("✅ [COLLAB USERS] Connected users (excluding self):", {
-          count: users.length,
-          users: users.map((u) => ({ userId: u.userId, userName: u.userName })),
-        });
-
         setConnectedUsers(users);
       });
 
@@ -655,21 +482,8 @@ function CodeEditor({ userId, userName }) {
 
       setIsCollaborationEnabled(true);
 
-      console.log("🎉 [COLLAB] Collaboration fully initialized:", {
-        roomId,
-        isEnabled: true,
-        hasProvider: !!provider,
-        hasYdoc: !!ydoc,
-        hasYtext: !!ytext,
-      });
-
       return { ydoc, ytext, provider };
     } catch (error) {
-      console.error("❌ [COLLAB] Failed to initialize collaboration:", {
-        error: error.message,
-        stack: error.stack,
-        fileId,
-      });
       setErrorMessage(`❌ Collaboration error: ${error.message}`);
       return null;
     }
@@ -677,34 +491,21 @@ function CodeEditor({ userId, userName }) {
 
   //(5) Enhanced Monaco binding setup
   const setupMonacoBinding = (editor, monaco) => {
-    console.log("🔗 [MONACO BINDING] Setting up Monaco binding:", {
-      hasYtext: !!ytextRef.current,
-      hasProvider: !!providerRef.current,
-      hasAwareness: !!awarenessManagerRef.current,
-      hasCollabUtils: !!collaborationUtilsRef.current,
-      hasEditor: !!editor,
-      hasMonaco: !!monaco,
-    });
-
     if (
       !ytextRef.current ||
       !providerRef.current ||
       !awarenessManagerRef.current ||
       !collaborationUtilsRef.current
     ) {
-      console.error("❌ [MONACO BINDING] Missing required dependencies");
       return;
     }
 
     if (typeof window === "undefined") {
-      console.warn("⚠️ [MONACO BINDING] Skipped during SSR");
       return;
     }
 
     try {
       const { setupEnhancedMonacoBinding } = collaborationUtilsRef.current;
-
-      console.log("🔧 [MONACO BINDING] Creating binding...");
 
       const binding = setupEnhancedMonacoBinding(
         ytextRef.current,
@@ -713,8 +514,6 @@ function CodeEditor({ userId, userName }) {
       );
 
       monacoBindingRef.current = binding;
-
-      console.log("✅ [MONACO BINDING] Binding created successfully");
 
       // Cursor tracking
       const updateAwareness = () => {
@@ -726,11 +525,6 @@ function CodeEditor({ userId, userName }) {
             position.lineNumber,
             position.column
           );
-
-          console.log("📍 [MONACO BINDING] Cursor updated:", {
-            line: position.lineNumber,
-            column: position.column,
-          });
         }
 
         if (selection && !selection.isEmpty()) {
@@ -742,12 +536,6 @@ function CodeEditor({ userId, userName }) {
             selection.endColumn,
             selectedText
           );
-
-          console.log("🔤 [MONACO BINDING] Selection updated:", {
-            start: `${selection.startLineNumber}:${selection.startColumn}`,
-            end: `${selection.endLineNumber}:${selection.endColumn}`,
-            textLength: selectedText.length,
-          });
         } else {
           awarenessManagerRef.current.clearSelection();
         }
@@ -759,16 +547,12 @@ function CodeEditor({ userId, userName }) {
       let typingTimeout;
       editor.onDidChangeModelContent(() => {
         awarenessManagerRef.current.setTyping(true);
-        console.log("⌨️ [MONACO BINDING] User is typing");
 
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => {
           awarenessManagerRef.current.setTyping(false);
-          console.log("✋ [MONACO BINDING] User stopped typing");
         }, 2000);
       });
-
-      console.log("🎉 [MONACO BINDING] All event listeners attached");
     } catch (error) {
       console.error("❌ [MONACO BINDING] Failed to setup binding:", {
         error: error.message,
@@ -802,15 +586,6 @@ function CodeEditor({ userId, userName }) {
   };
 
   const handleSaveFile = async () => {
-    console.log("💾 [SAVE] Starting file save:", {
-      fileName: selectedFile?.originalName,
-      fileId: selectedFile?.id,
-      isPdf,
-      isSaving,
-      isLocal: selectedFile ? localFiles.has(selectedFile.id) : false,
-      timestamp: new Date().toISOString(),
-    });
-
     if (!selectedFile || isPdf || isSaving) {
       console.warn("⚠️ [SAVE] Cannot save:", {
         hasSelectedFile: !!selectedFile,
@@ -826,15 +601,7 @@ function CodeEditor({ userId, userName }) {
     // Get content from Yjs if collaboration is active
     if (ytextRef.current && !isLocalFile && documentSynced) {
       contentToSave = ytextRef.current.toString();
-      console.log("📝 [SAVE] Using Yjs content:", {
-        contentLength: contentToSave.length,
-        source: "Yjs",
-      });
     } else {
-      console.log("📝 [SAVE] Using editor content:", {
-        contentLength: contentToSave.length,
-        source: isLocalFile ? "Local file" : "Editor state",
-      });
     }
 
     setIsSaving(true);
@@ -843,18 +610,10 @@ function CodeEditor({ userId, userName }) {
       setErrorMessage("");
 
       if (isLocalFile) {
-        console.log("🆕 [SAVE] Saving new local file to server");
         const localFile = localFiles.get(selectedFile.id);
 
         // ... save logic ...
-
-        console.log("✅ [SAVE] Local file saved to server successfully");
       } else {
-        console.log("📤 [SAVE] Updating existing file on server:", {
-          url: `${API_BASE}/${selectedFile.id}/content/submit`,
-          contentLength: contentToSave.length,
-        });
-
         const response = await fetch(
           `${API_BASE}/${selectedFile.id}/content/submit`,
           {
@@ -864,11 +623,6 @@ function CodeEditor({ userId, userName }) {
           }
         );
 
-        console.log("📥 [SAVE] Server response:", {
-          ok: response.ok,
-          status: response.status,
-        });
-
         if (!response.ok)
           throw new Error(`Failed to save file: ${response.statusText}`);
         const data = await response.json();
@@ -876,7 +630,6 @@ function CodeEditor({ userId, userName }) {
           throw new Error(data.message || "Failed to save file");
 
         setLastSaved(Date.now());
-        console.log("✅ [SAVE] File saved successfully");
         setErrorMessage("✅ File saved successfully!");
       }
 
@@ -889,7 +642,6 @@ function CodeEditor({ userId, userName }) {
       setErrorMessage(`❌ Error saving file: ${error.message}`);
     } finally {
       setIsSaving(false);
-      console.log("🏁 [SAVE] Save operation finished");
     }
   };
 
@@ -1041,14 +793,6 @@ function CodeEditor({ userId, userName }) {
   };
 
   const handleExecuteFile = async () => {
-    console.log("▶️ [EXECUTION] Starting code execution:", {
-      fileName: selectedFile?.originalName,
-      fileId: selectedFile?.id,
-      canExecute: canExecuteFile(selectedFile?.originalName),
-      isExecuting,
-      timestamp: new Date().toISOString(),
-    });
-
     if (
       !selectedFile ||
       !canExecuteFile(selectedFile.originalName) ||
@@ -1065,10 +809,6 @@ function CodeEditor({ userId, userName }) {
     }
 
     const languageId = getJudge0LanguageId(selectedFile.originalName);
-    console.log("🔍 [EXECUTION] Language detected:", {
-      fileName: selectedFile.originalName,
-      languageId,
-    });
 
     if (!languageId) {
       console.error("❌ [EXECUTION] Language not supported for execution");
@@ -1091,25 +831,8 @@ function CodeEditor({ userId, userName }) {
         documentSynced
       ) {
         fileContent = ytextRef.current.toString();
-        console.log("📝 [EXECUTION] Using Yjs content:", {
-          contentLength: fileContent.length,
-          isCollaborative: true,
-        });
       } else {
-        console.log("📝 [EXECUTION] Using editor content:", {
-          contentLength: fileContent.length,
-          isLocal: localFiles.has(selectedFile.id),
-        });
       }
-
-      console.log("📤 [EXECUTION] Sending execution request:", {
-        fileName: selectedFile.originalName,
-        contentLength: fileContent.length,
-        inputLength: executionInput.length,
-        languageId,
-        projectId,
-        firstLines: fileContent.split("\n").slice(0, 3).join("\n"),
-      });
 
       const response = await fetch(`${API_BASE}/execute`, {
         method: "POST",
@@ -1123,35 +846,17 @@ function CodeEditor({ userId, userName }) {
         }),
       });
 
-      console.log("📥 [EXECUTION] Received response:", {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-      });
-
       if (!response.ok) {
         throw new Error(`Execution failed: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      console.log("📊 [EXECUTION] Execution result:", {
-        success: data.success,
-        hasOutput: !!data.output,
-        hasError: !!data.error,
-        outputLength: data.output?.length || 0,
-        errorLength: data.error?.length || 0,
-      });
-
       if (!data.success) {
         console.error("❌ [EXECUTION] Execution failed:", data.error);
         setExecutionError(data.error || "Execution failed");
         setExecutionOutput(data.output || "");
       } else {
-        console.log("✅ [EXECUTION] Execution successful:", {
-          outputLength: data.output?.length || 0,
-          output: data.output,
-        });
         setExecutionOutput(
           data.output || "Program executed successfully (no output)"
         );
@@ -1166,7 +871,6 @@ function CodeEditor({ userId, userName }) {
       setExecutionOutput("");
     } finally {
       setIsExecuting(false);
-      console.log("🏁 [EXECUTION] Execution finished");
     }
   };
 
@@ -1240,27 +944,28 @@ function CodeEditor({ userId, userName }) {
 
   return (
     <>
-      <div className="flex h-screen bg-gradient-to-br from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 shadow-lg rounded-lg mx-5">
+      <div className="flex h-screen bg-gradient-to-br from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 shadow-lg rounded-lg mx-2 sm:mx-3 md:mx-5 overflow-hidden">
         {/* Sidebar */}
-        <Sidebar
-          tree={tree}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
-          showFileMenu={showFileMenu}
-          setShowFileMenu={setShowFileMenu}
-          onRefresh={handleRefresh}
-          onNewFile={() => setIsNewFileModalOpen(true)}
-          onDeleteFile={handleDeleteFile}
-          isRefreshing={isRefreshing}
-          isDeleting={isDeleting}
-          projectId={projectId}
-        />
+        <div className="hidden md:flex">
+          <Sidebar
+            tree={tree}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            sidebarCollapsed={sidebarCollapsed}
+            setSidebarCollapsed={setSidebarCollapsed}
+            showFileMenu={showFileMenu}
+            setShowFileMenu={setShowFileMenu}
+            onRefresh={handleRefresh}
+            onNewFile={() => setIsNewFileModalOpen(true)}
+            onDeleteFile={handleDeleteFile}
+            isRefreshing={isRefreshing}
+            isDeleting={isDeleting}
+            projectId={projectId}
+          />
+        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Enhanced Toolbar with Collaboration */}
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
           <Toolbar
             selectedFile={selectedFile}
             isPdf={isPdf}
@@ -1274,121 +979,50 @@ function CodeEditor({ userId, userName }) {
             lastSaved={lastSaved}
           />
 
-          {/* Editor Area */}
-          <div
-            className={`flex-1 ${
-              showOutput && !isOutputMaximized ? "h-1/2" : ""
-            }`}
-          >
-            {/* Enhanced Status/Error Bar */}
-            {errorMessage && (
-              <div
-                className={`mx-4 mt-3 p-3 rounded-lg ${
-                  errorMessage.includes("✅")
-                    ? "bg-green-600/20 text-green-300 border border-green-600/30"
-                    : errorMessage.includes("⚠️")
-                    ? "bg-yellow-600/20 text-yellow-300 border border-yellow-600/30"
-                    : "bg-red-600/20 text-red-300 border border-red-600/30"
-                }`}
-              >
-                <div className="flex items-center">
-                  <div
-                    className={`w-2 h-2 rounded-full mr-2 ${
-                      errorMessage.includes("✅")
-                        ? "bg-green-400"
-                        : errorMessage.includes("⚠️")
-                        ? "bg-yellow-400"
-                        : "bg-red-400"
-                    }`}
-                  />
-                  {errorMessage}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-1">
-              {/* Editor */}
-              <div className="flex-1">
-                {selectedFile ? (
-                  isPdf ? (
-                    <div className="p-4">
-                      <div className="text-amber-300 mb-4">
-                        PDF files cannot be edited in the code editor.
-                      </div>
-                      {downloadUrl ? (
-                        <iframe
-                          src={downloadUrl}
-                          className="w-full h-[calc(100vh-200px)] border border-amber-600/50 rounded-lg bg-white"
-                          title="PDF Viewer"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-64">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400 mr-3" />
-                          <span className="text-amber-300">Loading PDF...</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-full relative">
-                      {/* Collaboration status overlay */}
-                      {isCollaborationEnabled && !documentSynced && (
-                        <div className="absolute top-4 right-4 z-10 bg-yellow-600/90 text-yellow-100 px-3 py-1 rounded-md text-sm flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-3 w-3 border border-yellow-300 border-t-transparent" />
-                          <span>Syncing document...</span>
-                        </div>
-                      )}
-
-                      <Editor
-                        height={
-                          showOutput && !isOutputMaximized
-                            ? "calc(50vh - 120px)"
-                            : "calc(100vh - 140px)"
-                        }
-                        language={editorLanguage}
-                        value={editorContent}
-                        onChange={
-                          canEdit && localFiles.has(selectedFile.id)
-                            ? handleEditorChange
-                            : undefined
-                        }
-                        onMount={handleEditorDidMount}
-                        options={editorOptions}
-                        theme="vs-dark"
-                      />
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <Code className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-amber-100 text-xl mb-2">
-                        Welcome to DevCollab
-                      </h3>
-                      <p className="text-amber-200/80 mb-6 max-w-md">
-                        Select a file from the sidebar to start editing
-                        collaboratively in real-time.
-                      </p>
-                      <div className="flex items-center justify-center space-x-6 text-sm text-amber-300">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 rounded-full bg-green-400" />
-                          <span>Real-time sync</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 rounded-full bg-blue-400" />
-                          <span>Live cursors</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 rounded-full bg-purple-400" />
-                          <span>Multi-user editing</span>
-                        </div>
-                      </div>
-                    </div>
+          {/* Editor + Collaboration */}
+          <div className="flex-1 flex flex-col md:flex-row min-h-0">
+            {/* Editor */}
+            <div className="flex-1 min-w-0">
+              {selectedFile ? (
+                isPdf ? (
+                  <div className="p-3 sm:p-4">
+                    <iframe
+                      src={downloadUrl}
+                      className="w-full h-[60vh] md:h-[calc(100vh-200px)] rounded-lg border"
+                    />
                   </div>
-                )}
-              </div>
+                ) : (
+                  <Editor
+                    height="100%"
+                    language={editorLanguage}
+                    value={editorContent}
+                    onChange={
+                      canEdit && localFiles.has(selectedFile.id)
+                        ? handleEditorChange
+                        : undefined
+                    }
+                    onMount={handleEditorDidMount}
+                    options={editorOptions}
+                    theme="vs-dark"
+                  />
+                )
+              ) : (
+                <div className="flex items-center justify-center h-full text-center px-4">
+                  <div>
+                    <h3 className="text-amber-100 text-lg sm:text-xl mb-2">
+                      Select a file to start
+                    </h3>
+                    <p className="text-amber-200/80 text-sm">
+                      Choose a file from the sidebar to begin editing.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-              {/* Enhanced Collaboration Panel */}
-              {isCollaborationEnabled && selectedFile && !isPdf && (
+            {/* Collaboration Panel */}
+            {isCollaborationEnabled && selectedFile && !isPdf && (
+              <div className="hidden lg:flex w-72 border-l">
                 <CollaborationPanel
                   connectedUsers={connectedUsers}
                   collaborationStatus={collaborationStatus}
@@ -1396,11 +1030,11 @@ function CodeEditor({ userId, userName }) {
                   documentSynced={documentSynced}
                   roomId={`file_${selectedFile.id}_${projectId}`}
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Output Panel */}
+          {/* Output */}
           {showOutput && (
             <OutputPanel
               isOutputMaximized={isOutputMaximized}

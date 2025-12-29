@@ -59,7 +59,6 @@ export default function Communication({ projectId, userId, userName }) {
         );
         if (response.ok) {
           const data = await response.json();
-          console.log("DTA", data);
           setMessages(data);
         }
       } catch (err) {
@@ -80,14 +79,9 @@ export default function Communication({ projectId, userId, userName }) {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("✅ Socket.IO connected");
     });
 
     socket.on("chat_message", (msg) => {
-      console.log("📩 SERVER → CLIENT (chat_message):", msg);
-      console.log("🔑 MESSAGE KEYS:", Object.keys(msg));
-      console.log("📝 msg.content:", msg.content);
-      console.log("📝 msg.message:", msg.message);
 
       setMessages((prev) => [...prev, msg]);
     });
@@ -195,7 +189,6 @@ export default function Communication({ projectId, userId, userName }) {
       type: "text",
       replyTo: replyingTo?._id || null,
     };
-    console.log("📤 SENDING MESSAGE:", messageData);
     if (editingMessage) {
       socketRef.current.emit("edit_message", {
         messageId: editingMessage._id,

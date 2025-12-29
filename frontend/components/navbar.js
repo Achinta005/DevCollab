@@ -226,14 +226,8 @@ const Navbar = () => {
   };
   const handleBackendConnect = async () => {
     try {
-      console.log(
-        "Attempting to connect to:",
-        `${process.env.NEXT_PUBLIC_API_URL}/connect`
-      );
       const res = await isAliveCheck.connectBackend();
-      console.log("Response status:", res.status);
       const data = await res;
-      console.log("Backend connection successful:", data);
     } catch (error) {}
   };
 
