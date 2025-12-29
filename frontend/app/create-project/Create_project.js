@@ -38,29 +38,43 @@ const Create_project = ({ onClose }) => {
       description: formData.description.trim(),
       settings: {
         visibility: formData.visibility,
-        allowedLanguages: formData.allowedLanguages.filter((lang) => lang.trim() !== ""),
+        allowedLanguages: formData.allowedLanguages.filter(
+          (lang) => lang.trim() !== ""
+        ),
         maxCollaborators: parseInt(formData.maxCollaborators),
+        filePermissions: {
+          whoCanUpload: "all",
+          whoCanDelete: "owner",
+        },
       },
     };
+
     try {
       const response = await projectService.createProject(payload);
-      setSuccess("Project created successfully!");
-      setTimeout(() => {
-        setFormData({
-          name: "",
-          description: "",
-          visibility: "",
-          allowedLanguages: ["javascript"],
-          maxCollaborators: 2,
-        });
-        setSuccess("");
-        onClose(); // Close modal after success
-        // Navigate to the newly created project
-        const projectId = response.data._id; // Assuming response.data contains the project object with _id
-        const params = new URLSearchParams({ projectId });
-        router.push(`/Editor?${params.toString()}`);
-      }, 2000);
-      return response;
+
+      if (response.success) {
+        setSuccess("Project created successfully!");
+        setTimeout(() => {
+          setFormData({
+            name: "",
+            description: "",
+            visibility: "private",
+            allowedLanguages: ["javascript"],
+            maxCollaborators: 10,
+          });
+          setSuccess("");
+          onClose(); 
+          
+          const projectId = response.project?.id || response.data?.id;
+          if (projectId) {
+            const params = new URLSearchParams({ projectId });
+            router.push(`/Editor?${params.toString()}`);
+          }
+        }, 2000);
+        return response;
+      } else {
+        throw new Error(response.message || "Failed to create project");
+      }
     } catch (error) {
       console.error("Error creating project:", error);
       setError(error.message || "Failed to create project. Please try again.");
@@ -136,44 +150,59 @@ const Create_project = ({ onClose }) => {
             required
           >
             <option value="">Select Project Visibility</option>
-            <option value="public">Public (Others can join with invitation link)</option>
-            <option value="private">Private (No one can join this project)</option>
+            <option value="public">
+              Public (Others can join with invitation link)
+            </option>
+            <option value="private">
+              Private (No one can join this project)
+            </option>
           </select>
         </LabelInputContainer>
 
         {/* Allowed Languages */}
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="allowedLanguages" className="text-green-400 text-center">
+          <Label
+            htmlFor="allowedLanguages"
+            className="text-green-400 text-center"
+          >
             Allowed Languages
           </Label>
           <div className="grid grid-cols-2 gap-2 px-2">
-            {["javascript", "python", "java", "cpp", "html", "css"].map((lang) => (
-              <label key={lang} className="flex items-center gap-2 capitalize text-gray-300">
-                <input
-                  type="checkbox"
-                  name="allowedLanguages"
-                  value={lang}
-                  checked={formData.allowedLanguages.includes(lang)}
-                  onChange={(e) => {
-                    const { checked, value } = e.target;
-                    setFormData((prev) => ({
-                      ...prev,
-                      allowedLanguages: checked
-                        ? [...prev.allowedLanguages, value]
-                        : prev.allowedLanguages.filter((l) => l !== value),
-                    }));
-                    if (error) setError("");
-                  }}
-                />
-                {lang}
-              </label>
-            ))}
+            {["javascript", "python", "java", "cpp", "html", "css"].map(
+              (lang) => (
+                <label
+                  key={lang}
+                  className="flex items-center gap-2 capitalize text-gray-300"
+                >
+                  <input
+                    type="checkbox"
+                    name="allowedLanguages"
+                    value={lang}
+                    checked={formData.allowedLanguages.includes(lang)}
+                    onChange={(e) => {
+                      const { checked, value } = e.target;
+                      setFormData((prev) => ({
+                        ...prev,
+                        allowedLanguages: checked
+                          ? [...prev.allowedLanguages, value]
+                          : prev.allowedLanguages.filter((l) => l !== value),
+                      }));
+                      if (error) setError("");
+                    }}
+                  />
+                  {lang}
+                </label>
+              )
+            )}
           </div>
         </LabelInputContainer>
 
         {/* Max Collaborators */}
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="maxCollaborators" className="text-green-400 text-center">
+          <Label
+            htmlFor="maxCollaborators"
+            className="text-green-400 text-center"
+          >
             Max Collaborators: {formData.maxCollaborators}
           </Label>
           <input
@@ -222,5 +251,7 @@ const BottomGradient = () => (
 );
 
 const LabelInputContainer = ({ children, className }) => (
-  <div className={cn("flex w-full flex-col space-y-2", className)}>{children}</div>
+  <div className={cn("flex w-full flex-col space-y-2", className)}>
+    {children}
+  </div>
 );

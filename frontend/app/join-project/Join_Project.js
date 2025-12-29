@@ -80,7 +80,7 @@ const Join_Project = ({ onClose }) => {
             onChange={handleChange}
             placeholder="Enter Project Invite Code"
             required
-            maxLength={10}
+            maxLength={20}
             className="bg-gray-700 text-white border-gray-600"
           />
         </LabelInputContainer>

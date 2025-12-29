@@ -14,7 +14,7 @@ export const projectService = {
       body: JSON.stringify({ inviteCode }),
     });
   },
-  
+
   //API CALL FOR JOINING A PROJECT USING INVITE CODE
   joinProject: async (inviteCode) => {
     return apiCall("/api/projects/join", {
@@ -24,11 +24,11 @@ export const projectService = {
   },
 
   //API CALL FOR CREATING NEW PROJECT
-  createProject:async(payload)=>{
-    return apiCall('/api/projects/create',{
-      method:'POST',
-      body:JSON.stringify(payload),
-    })
+  createProject: async (payload) => {
+    return apiCall("/api/projects/create", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   //API CALL FOR FETCHING PROJECT METADATA USING PROJECT ID
@@ -65,16 +65,35 @@ export const projectService = {
 
   //API CALL FOR UPDAING PROJECT METADATA
   updateProject: async (formData) => {
-    return apiCall("/api/projects/update-project", {
-      method: "PUT",
-      body: JSON.stringify(formData),
-    });
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/projects/update-project`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(formData),
+      }
+    );
+
+    const text = await response.text();
+
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      throw new Error(data?.message || "Update project failed");
+    }
+
+    return data;
   },
 
   //API CALL FOR DELETING PROJECT
-  deleteProject : async(projectId)=>{
-    return apiCall(`/api/projects/delete-project/${projectId}`,{
-      method:"DELETE",
-    })
-  }
+  deleteProject: async (projectId) => {
+    return apiCall(`/api/projects/delete-project/${projectId}`, {
+      method: "DELETE",
+    });
+  },
 };

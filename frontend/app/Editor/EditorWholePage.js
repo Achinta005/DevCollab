@@ -7,6 +7,7 @@ import FileManager from "./component/FileManager";
 import { FileManagerProvider } from "../context/FileManagerContext";
 import CodeEditor from "./component/CodeEditor";
 import { userService } from "../../services";
+import Communication from "./component/Communiaction";
 
 const UserProfile = () => {
   const [mounted, setMounted] = useState(false);
@@ -63,27 +64,77 @@ const UserProfile = () => {
     );
   }
 
-  
-
   return (
-    <div className="bg-black/90 h-fit">
-      <div className="flex items-center justify-between p-5">
+    <div className="bg-[#120d0a] h-fit p-2">
+      <div
+        className="
+  flex items-center justify-between 
+  px-6 py-4
+  rounded-xl
+  bg-gradient-to-r from-[#1a120c]/90 via-[#140f0b]/90 to-[#1a120c]/90
+  backdrop-blur-xl
+  border border-amber-900/30
+  shadow-lg shadow-black/40
+"
+      >
+        {/* LEFT */}
         <button
-          className="bg-white/10 backdrop-blur-3xl text-amber-50 cursor-pointer p-2 rounded-lg hover:bg-white/20 transition-colors"
           onClick={() => router.push("/")}
+          className="
+      flex items-center gap-2
+      px-4 py-2
+      rounded-lg
+      bg-white/10
+      text-amber-100
+      text-sm font-medium
+      hover:bg-white/20
+      hover:shadow-md hover:shadow-amber-500/10
+      transition-all
+    "
         >
-          ← HOME
+          <span className="text-lg">←</span>
+          HOME
         </button>
-        <div className="text-amber-50 text-lg font-semibold">
-          Welcome to DevCollab
+
+        {/* CENTER */}
+        <div className="text-center">
+          <div className="text-amber-100 text-lg font-semibold tracking-wide">
+            DevCollab
+          </div>
+          <div className="text-amber-400/70 text-xs tracking-wider uppercase">
+            Collaboration Workspace
+          </div>
         </div>
-        <div className="text-amber-50 text-xl">Welcome {userData.firstname}</div>
+
+        {/* RIGHT */}
+        <div className="flex items-center gap-3">
+          <div
+            className="
+      w-9 h-9 rounded-full
+      bg-gradient-to-br from-amber-500/30 to-amber-700/30
+      flex items-center justify-center
+      text-amber-100 font-semibold
+      ring-1 ring-amber-500/40
+    "
+          >
+            {userData.firstname?.[0]}
+          </div>
+          <div className="text-amber-100 text-sm">
+            Welcome,&nbsp;
+            <span className="font-semibold">{userData.firstname}</span>
+          </div>
+        </div>
       </div>
 
       <ProjectInfo projectData={projectData} />
       <FileManagerProvider projectData={projectData}>
         <FileManager projectData={projectData} />
         <CodeEditor userId={userData.id} userName={userData.username} />
+        <Communication
+          projectId={projectData.id}
+          userId={userData.id}
+          userName={userData.username}
+        />
       </FileManagerProvider>
     </div>
   );

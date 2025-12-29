@@ -12,7 +12,6 @@ import OutputPanel from "./components/OutputPanel";
 import NewFileModal from "./components/NewFileModel";
 import CollaborationPanel from "./components/CollaborationPanel";
 import { projectService } from "../../../services";
-import CommunicationComponent from "./Communiaction";
 
 // Import utilities and constants
 import { JUDGE0_LANGUAGES } from "./components/constants";
@@ -139,12 +138,15 @@ function CodeEditor({ userId, userName }) {
   const currentUserId = userId; // e.g. from auth context or localStorage
 
   // Find collaborator entry for current user
+  const isOwner = project?.owner?.id === currentUserId;
+
   const collaborator = project?.collaborators?.find(
-    (c) => c.user._id === currentUserId
+    (c) => c.userId === currentUserId
   );
 
-  const currentUserRole = collaborator?.role;
-  const canEdit = currentUserRole === "owner" || currentUserRole === "editor";
+  const isEditor = collaborator?.role === "editor";
+
+  const canEdit = isOwner || isEditor;
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -266,7 +268,6 @@ function CodeEditor({ userId, userName }) {
 
     try {
       setErrorMessage("");
-      cleanupCollaboration();
       setContentLoaded(false); // ✅ Use setState instead of ref
       initialContentRef.current = null;
 
@@ -502,8 +503,6 @@ function CodeEditor({ userId, userName }) {
     }
 
     try {
-      cleanupCollaboration();
-
       const ydoc = new Y.Doc();
       const ytext = ydoc.getText("monaco");
 
@@ -615,15 +614,15 @@ function CodeEditor({ userId, userName }) {
       provider.awareness.on("update", () => {
         const allStates = Array.from(provider.awareness.getStates().entries());
 
-        // console.log("👥 [COLLAB USERS] Awareness update:", {
-        //   totalStates: allStates.length,
-        //   allUsers: allStates.map(([clientId, state]) => ({
-        //     clientId,
-        //     userId: state.userId,
-        //     userName: state.userName,
-        //     isCurrentUser: state.userId === userId,
-        //   })),
-        // });
+        console.log("👥 [COLLAB USERS] Awareness update:", {
+          totalStates: allStates.length,
+          allUsers: allStates.map(([clientId, state]) => ({
+            clientId,
+            userId: state.userId,
+            userName: state.userName,
+            isCurrentUser: state.userId === userId,
+          })),
+        });
 
         const users = allStates
           .map(([clientId, state]) => ({
@@ -641,10 +640,10 @@ function CodeEditor({ userId, userName }) {
           .filter((user) => user.userId && user.userId !== userId)
           .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
 
-        // console.log("✅ [COLLAB USERS] Connected users (excluding self):", {
-        //   count: users.length,
-        //   users: users.map((u) => ({ userId: u.userId, userName: u.userName })),
-        // });
+        console.log("✅ [COLLAB USERS] Connected users (excluding self):", {
+          count: users.length,
+          users: users.map((u) => ({ userId: u.userId, userName: u.userName })),
+        });
 
         setConnectedUsers(users);
       });
@@ -1232,17 +1231,16 @@ function CodeEditor({ userId, userName }) {
 
   //Defining Project Data for Communication components
   const projectData = {
-  projectId: project?.id,
-  userId,
-  userName,
-  token,
-  wsUrl: process.env.NEXT_PUBLIC_SOCKET_URL,
-};
-
+    projectId: project?.id,
+    userId,
+    userName,
+    token,
+    wsUrl: process.env.NEXT_PUBLIC_SOCKET_URL,
+  };
 
   return (
     <>
-      <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 mx-5 rounded-lg">
+      <div className="flex h-screen bg-gradient-to-br from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 shadow-lg rounded-lg mx-5">
         {/* Sidebar */}
         <Sidebar
           tree={tree}
@@ -1314,19 +1312,19 @@ function CodeEditor({ userId, userName }) {
                 {selectedFile ? (
                   isPdf ? (
                     <div className="p-4">
-                      <div className="text-slate-400 mb-4">
+                      <div className="text-amber-300 mb-4">
                         PDF files cannot be edited in the code editor.
                       </div>
                       {downloadUrl ? (
                         <iframe
                           src={downloadUrl}
-                          className="w-full h-[calc(100vh-200px)] border border-slate-600/50 rounded-lg bg-white"
+                          className="w-full h-[calc(100vh-200px)] border border-amber-600/50 rounded-lg bg-white"
                           title="PDF Viewer"
                         />
                       ) : (
                         <div className="flex items-center justify-center h-64">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3" />
-                          <span className="text-slate-400">Loading PDF...</span>
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400 mr-3" />
+                          <span className="text-amber-300">Loading PDF...</span>
                         </div>
                       )}
                     </div>
@@ -1347,11 +1345,11 @@ function CodeEditor({ userId, userName }) {
                             : "calc(100vh - 140px)"
                         }
                         language={editorLanguage}
-                        value={editorContent} // ✅ Always pass content, let binding handle sync
+                        value={editorContent}
                         onChange={
                           canEdit && localFiles.has(selectedFile.id)
                             ? handleEditorChange
-                            : undefined // ✅ No onChange for server files (Yjs handles it)
+                            : undefined
                         }
                         onMount={handleEditorDidMount}
                         options={editorOptions}
@@ -1362,15 +1360,15 @@ function CodeEditor({ userId, userName }) {
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                      <Code className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                      <h3 className="text-slate-300 text-xl mb-2">
+                      <Code className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+                      <h3 className="text-amber-100 text-xl mb-2">
                         Welcome to DevCollab
                       </h3>
-                      <p className="text-slate-400 mb-6 max-w-md">
+                      <p className="text-amber-200/80 mb-6 max-w-md">
                         Select a file from the sidebar to start editing
                         collaboratively in real-time.
                       </p>
-                      <div className="flex items-center justify-center space-x-6 text-sm text-slate-500">
+                      <div className="flex items-center justify-center space-x-6 text-sm text-amber-300">
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 rounded-full bg-green-400" />
                           <span>Real-time sync</span>
@@ -1436,13 +1434,6 @@ function CodeEditor({ userId, userName }) {
           />
         )}
       </div>
-      <CommunicationComponent
-        projectId={projectId}
-        userId={projectData.userId}
-        userName={projectData.userName}
-        token={projectData.token}
-        wsUrl={projectData.wsUrl}
-      />
     </>
   );
 }

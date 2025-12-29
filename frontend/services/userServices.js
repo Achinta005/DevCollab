@@ -23,6 +23,7 @@ export const userService = {
     });
   },
 
+
   //API FOR UPLOADING IMAGE USING USERNAME
   uploadImage: async (formData) => {
     return apiCall("/api/image/upload", {

@@ -30,7 +30,6 @@ const Profile_Setting = ({ username }) => {
       try {
         setLoading(true);
         const userData = await userService.getProfile(username);
-
         const loadedData = {
           firstname: userData.user.firstname || "",
           username: userData.user.username || "",

@@ -39,8 +39,10 @@ const getUploadHeaders = () => ({
 
   const fetchFolderContents = async (folderId) => {
     try {
+
+      // For each time any folder is clicked this two api calls runs 
       const foldersResponse = await fetch(
-        `${API_BASE}/folders/${folderId}/contents?projectId=${projectId}`,
+        `${API_BASE}/folders/${folderId}/contents?projectId=${projectId}`,  //(1)
         { headers: getAuthHeaders() }
       );
       if (!foldersResponse.ok) throw new Error("Failed to fetch folder contents");
@@ -49,7 +51,7 @@ const getUploadHeaders = () => ({
       const subfolders = foldersData.subfolders || [];
 
       const filesResponse = await fetch(
-        `${API_BASE}/project/${projectId}?folderId=${folderId}`,
+        `${API_BASE}/project/${projectId}?folderId=${folderId}`,  //(2)
         { headers: getAuthHeaders() }
       );
       if (!filesResponse.ok) throw new Error("Failed to fetch files");
@@ -65,6 +67,10 @@ const getUploadHeaders = () => ({
       setError(error.message);
       console.error("Fetch folder contents error:", error);
     }
+
+    // (1) Called for geting all subfolders under that folder(folderId) -- which clicked 
+    // (2) Called for getting all files under that folder(folderId)  -- which clicked 
+    // And This whole function returns all files and folders inside any folder based on its Id 
   };
 
   const fetchAllFiles = async () => {
@@ -72,7 +78,7 @@ const getUploadHeaders = () => ({
     const traverseFolder = async (folderId) => {
       try {
         const response = await fetch(
-          `${API_BASE}/folders/${folderId}/contents?projectId=${projectId}`,
+          `${API_BASE}/folders/${folderId}/contents?projectId=${projectId}`, //(1)
           { headers: getAuthHeaders() }
         );
         if (!response.ok) throw new Error("Failed to fetch folder contents");
@@ -81,7 +87,7 @@ const getUploadHeaders = () => ({
         const subfolders = foldersData.subfolders || [];
 
         const filesResponse = await fetch(
-          `${API_BASE}/project/${projectId}?folderId=${folderId}`,
+          `${API_BASE}/project/${projectId}?folderId=${folderId}`,//(2)
           { headers: getAuthHeaders() }
         );
         if (!filesResponse.ok) throw new Error("Failed to fetch files");

@@ -51,6 +51,7 @@ const ProjectInfo = ({ projectData }) => {
   const nameSpanRef = useRef(null);
   const descSpanRef = useRef(null);
   const MCollSpanRef = useRef(null);
+
   useEffect(() => {
     if (nameSpanRef.current) {
       setNameWidth(nameSpanRef.current.offsetWidth + 10);
@@ -71,20 +72,29 @@ const ProjectInfo = ({ projectData }) => {
 
   //FETCH PROJECT METADATA FROM DATABASE USING PROJECT ID
   const fetchProjectMetaData = async () => {
+    if (!projectService.getProject) {
+      throw new Error("Project service is not available");
+    }
     try {
-      const response = projectService.getProject(projectData.id);
-      const data = await response;
-      if (data.success) {
-        return data.data;
+      const response = await projectService.getProject(projectData.id);
+      if (response.success) {
+        return response.data;
+      } else {
+        throw new Error(response.message || "Failed to fetch project");
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      throw error;
+    }
   };
+
   useEffect(() => {
     const loadProject = async () => {
       try {
         const data = await fetchProjectMetaData();
         setFetchProject(data);
       } catch (err) {
+        setError(err.message);
         setFetchProject(null);
       }
     };
@@ -94,14 +104,15 @@ const ProjectInfo = ({ projectData }) => {
 
   //SETTING COMPLEX DATA INTO SEPARATE OBJECT
   const collaborators = fetchProject?.collaborators || [];
+  const owner = fetchProject?.owner || [];
   const files = fetchProject?.files || [];
-  const settings = fetchProject?.settings || "{}";
+  const settings = fetchProject?.settings || {};
 
   //HANDLE SETTING THE INITIAL PROJECT METADATA
   useEffect(() => {
     if (fetchProject) {
       const loadData = {
-        projectID: fetchProject._id || "",
+        projectID: fetchProject.id || "",
         projectName: fetchProject.name || "",
         projectDesc: fetchProject.description || "",
         maxCollaborators: fetchProject.settings?.maxCollaborators || "",
@@ -127,26 +138,28 @@ const ProjectInfo = ({ projectData }) => {
   };
 
   //HANDLE THE EDITING PROCESS OF PROJECT METADATA
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const updatePrjectData = async () => {
-      try {
-        const response = projectService.updateProject(formData);
+    try {
+      console.log("data", formData);
+      const response = await projectService.updateProject(formData);
 
-        const data = await response;
-        if (!data.success) {
-          console.error("Update failed:", data.message);
-        } else {
-          setSuccess("Projaect updated successfully!");
-        }
-      } catch (err) {
-        console.error("API call error:", err);
+      if (!response.success) {
+        throw new Error(response.message || "Update failed");
+      } else {
+        setSuccess("Project updated successfully!");
+        setTimeout(() => setSuccess(""), 3000);
+        // Refresh project data
+        const updatedData = await fetchProjectMetaData();
+        setFetchProject(updatedData);
+        setIsChanged(false);
       }
-    };
-
-    updatePrjectData();
-    window.location.reload();
+    } catch (err) {
+      console.error("API call error:", err);
+      setError(err.message || "Failed to update project");
+      setTimeout(() => setError(""), 3000);
+    }
   };
 
   // APPLY ICON BASED ON ROLE
@@ -213,38 +226,32 @@ const ProjectInfo = ({ projectData }) => {
       setError("");
       setIsAddingCollaborator(true);
 
-      const response = projectService.addCollaborator(
+      const response = await projectService.addCollaborator(
         projectData.id,
         newCollaboratorEmail.trim(),
         "editor"
       );
 
-      const data = await response;
-
-      if (data.success) {
-        if (data.data.collaborator) {
-          // If user already exists and was added immediately
-          setFetchProject((prevProject) => ({
-            ...prevProject,
-            collaborators: [
-              ...prevProject.collaborators,
-              data.data.collaborator,
-            ],
-          }));
+      if (response.success) {
+        if (response.data.collaborator) {
+          // Refresh project data to get updated collaborators list
+          const updatedData = await fetchProjectMetaData();
+          setFetchProject(updatedData);
         }
         // Success handling
         setNewCollaboratorEmail("");
         setShowAddForm(false);
-        setSuccess(data.message || "Invitation sent successfully!");
+        setSuccess(response.message || "Invitation sent successfully!");
 
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        throw new Error(data.message || "Failed to add collaborator");
+        throw new Error(response.message || "Failed to add collaborator");
       }
     } catch (error) {
       console.error("Error adding collaborator:", error);
       setError(error.message || "Failed to send invitation");
+      setTimeout(() => setError(""), 3000);
     } finally {
       setIsAddingCollaborator(false);
     }
@@ -265,15 +272,21 @@ const ProjectInfo = ({ projectData }) => {
       setFetchProject((prevProject) => ({
         ...prevProject,
         collaborators: prevProject.collaborators.filter(
-          (collab) => collab._id !== collaboratorId
+          (collab) => collab.id !== collaboratorId
         ),
       }));
 
-      const response = projectService.removeCollaborator(
+      const response = await projectService.removeCollaborator(
         projectData.id,
         collaboratorId
       );
-      const data = await response;
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to remove collaborator");
+      }
+
+      setSuccess("Collaborator removed successfully!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error removing collaborator:", error);
 
@@ -283,7 +296,8 @@ const ProjectInfo = ({ projectData }) => {
         collaborators: originalCollaborators,
       }));
 
-      alert(error.message || "Failed to remove collaborator");
+      setError(error.message || "Failed to remove collaborator");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -293,7 +307,7 @@ const ProjectInfo = ({ projectData }) => {
     newRole
   ) => {
     const originalCollaborator = fetchProject.collaborators.find(
-      (c) => c._id === collaboratorId
+      (c) => c.id === collaboratorId
     );
     const originalRole = originalCollaborator?.role;
 
@@ -302,43 +316,51 @@ const ProjectInfo = ({ projectData }) => {
       setFetchProject((prevProject) => ({
         ...prevProject,
         collaborators: prevProject.collaborators.map((collab) =>
-          collab._id === collaboratorId ? { ...collab, role: newRole } : collab
+          collab.id === collaboratorId ? { ...collab, role: newRole } : collab
         ),
       }));
-      const response = projectService.updateCollaboratorRole(
+
+      const response = await projectService.updateCollaboratorRole(
         projectData.id,
         collaboratorId,
         newRole
       );
-      const data = await response;
-      if (!data.success) {
-        throw new Error(data.message || "Failed to update role");
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to update role");
       }
+      console.log("res",response);
       // Update with actual permissions from server
-      if (data.data?.permissions) {
+      if (response.data?.permissions) {
         setFetchProject((prevProject) => ({
           ...prevProject,
           collaborators: prevProject.collaborators.map((collab) =>
-            collab._id === collaboratorId
-              ? { ...collab, permissions: data.data.permissions }
+            collab.id === collaboratorId
+              ? { ...collab, permissions: response.data.permissions }
               : collab
           ),
         }));
       }
+
+      setSuccess("Role updated successfully!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
       console.error("Error updating collaborator role:", error);
+
       // Rollback optimistic update
       if (originalRole) {
         setFetchProject((prevProject) => ({
           ...prevProject,
           collaborators: prevProject.collaborators.map((collab) =>
-            collab._id === collaboratorId
+            collab.id === collaboratorId
               ? { ...collab, role: originalRole }
               : collab
           ),
         }));
       }
-      alert(error.message || "Failed to update role");
+
+      setError(error.message || "Failed to update role");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -348,18 +370,20 @@ const ProjectInfo = ({ projectData }) => {
       userRole === "owner" ||
       (userRole === "editor" &&
         collaborators
-          .find((c) => c.user._id === currentUserId)
+          .find((c) => c.userId === currentUserId)
           ?.permissions.includes("manage_collaborators"))
     );
   };
 
-  //CHECKS THE CURRENT USER ID & USER ROLE
-  const currentUserRole = collaborators.find(
-    (c) => c.user._id === projectData.currentUserId
-  )?.role;
   useEffect(() => {
     setCurrentUserId(projectData.currentUserId);
-  }, []);
+  }, [projectData.currentUserId]);
+
+  //CHECKS THE CURRENT USER ID & USER ROLE
+  const currentUserRole =
+    projectData.currentUserId === owner.id
+      ? "owner"
+      : collaborators.find((c) => c.userId === projectData.currentUserId)?.role;
 
   //COPY THE PROJECT INVITE CODE IN CLIPBOARD
   const copyInviteCode = async () => {
@@ -372,15 +396,26 @@ const ProjectInfo = ({ projectData }) => {
     }
   };
 
-  // useEffect(() => {
-  //   console.log( console.log(fetchProject))
-  // }, [fetchProject])
+  useEffect(() => {
+  }, [collaborators]);
 
   return (
     <div className="p-6 space-y-6">
+      {/* Success/Error Messages at top */}
+      {error && (
+        <div className="bg-red-600/20 border border-red-500 text-red-300 px-4 py-2 rounded-md text-sm text-center">
+          Error: {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-600/20 border border-green-500 text-green-300 px-4 py-2 rounded-md text-sm text-center">
+          {success}
+        </div>
+      )}
+
       {/* Project Overview */}
       <form onSubmit={handleSubmit}>
-        <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg">
+        <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg relative">
           <div className="p-6 text-amber-50">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-amber-600/20 rounded-lg border border-amber-500/30">
@@ -471,7 +506,7 @@ const ProjectInfo = ({ projectData }) => {
                     <Crown className="w-4 h-4 text-amber-400" />
                     <span className="text-sm">
                       <strong>Owner:</strong>{" "}
-                      {fetchProject.owner?.fullName || fetchProject.ownerName}
+                      {fetchProject.owner?.username || "Unknown"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -483,6 +518,7 @@ const ProjectInfo = ({ projectData }) => {
                       </code>
                     </span>
                     <button
+                      type="button"
                       onClick={copyInviteCode}
                       className="p-1 rounded hover:bg-amber-700/30 transition"
                       title="Copy invite code"
@@ -555,7 +591,7 @@ const ProjectInfo = ({ projectData }) => {
                       <div className="relative">
                         <select
                           name="visibility"
-                          value={fetchProject.settings?.visibility}
+                          value={formData.visibility}
                           onChange={handleChange}
                           className="appearance-none bg-amber-900/40 border border-amber-400 text-amber-100 text-sm font-medium rounded-lg px-3 py-1 pr-8 focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
                           autoFocus
@@ -652,7 +688,7 @@ const ProjectInfo = ({ projectData }) => {
               </div>
             </div>
           </div>
-          {isChanged ? (
+          {isChanged && (
             <button
               type="submit"
               className="absolute top-4 right-6 text-amber-400 bg-amber-800/40 border-amber-600/30 p-2 rounded-lg cursor-pointer active:scale-75 transition-transform duration-200 ease-in"
@@ -662,11 +698,161 @@ const ProjectInfo = ({ projectData }) => {
                 UPDATE CHANGES
               </div>
             </button>
-          ) : (
-            <></>
           )}
         </div>
       </form>
+
+      {/* Collaborators Section */}
+      {/* Owner Section */}
+      <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg text-amber-400 mb-6">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-amber-700/20 rounded-lg">
+              <Crown className="w-6 h-6 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold">Project Owner</h2>
+              <p className="text-sm text-amber-400/80">
+                Creator and administrator of this project
+              </p>
+            </div>
+          </div>
+
+          {/* Owner Info */}
+          <div className="flex items-center justify-between p-4 bg-amber-700/20 rounded-lg border border-amber-600/30">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="relative">
+                <img
+                  src={
+                    owner?.profile?.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      owner?.username || "Owner"
+                    )}&background=d97706&color=fff`
+                  }
+                  alt={`${owner?.username}'s avatar`}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-amber-400"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      owner?.username || "Owner"
+                    )}&background=d97706&color=fff`;
+                  }}
+                />
+                <div className="absolute -top-1 -right-1 bg-amber-400 rounded-full p-1">
+                  <Crown className="w-3 h-3 text-amber-900" />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="font-semibold text-amber-400">
+                    {owner?.firstname} {owner?.lastname}
+                  </h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-400 text-amber-900 border border-amber-500">
+                    <Crown className="w-3 h-3" />
+                    Owner
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1 text-sm text-amber-400/90">
+                  <span>@{owner?.username}</span>
+                  <span className="text-amber-400/70">{owner?.email}</span>
+                </div>
+
+                {/* Owner's Skills */}
+                {owner?.profile?.skills && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {owner.profile.skills
+                      .split(",")
+                      .slice(0, 5)
+                      .map((skill, index) => (
+                        <span
+                          key={index}
+                          className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-400/20 border border-amber-400/40 text-amber-300"
+                        >
+                          {skill.trim()}
+                        </span>
+                      ))}
+                    {owner.profile.skills.split(",").length > 5 && (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium text-amber-400/70">
+                        +{owner.profile.skills.split(",").length - 5} more
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Social Links */}
+                {(owner?.profile?.github ||
+                  owner?.profile?.linkedin ||
+                  owner?.profile?.portfolio) && (
+                  <div className="flex items-center gap-3 mt-2">
+                    {owner?.profile?.github && (
+                      <a
+                        href={owner.profile.github}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-400 hover:text-amber-300 transition-colors"
+                        title="GitHub"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                        </svg>
+                      </a>
+                    )}
+                    {owner?.profile?.linkedin && (
+                      <a
+                        href={owner.profile.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-400 hover:text-amber-300 transition-colors"
+                        title="LinkedIn"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                        </svg>
+                      </a>
+                    )}
+                    {owner?.profile?.portfolio && (
+                      <a
+                        href={owner.profile.portfolio}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-400 hover:text-amber-300 transition-colors text-xs"
+                        title="Portfolio"
+                      >
+                        🌐
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Owner Badge */}
+            <div className="flex flex-col items-end gap-2">
+              {currentUserId === owner?.id && (
+                <span className="px-3 py-1 text-xs font-medium text-amber-900 bg-amber-400 border border-amber-600/30 rounded-full">
+                  You
+                </span>
+              )}
+              <span className="px-3 py-1 text-xs font-medium bg-amber-400/20 text-amber-400 border border-amber-400/40 rounded-full">
+                Full Access
+              </span>
+              <span className="text-xs text-amber-400/60">
+                Active {formatDate(owner?.lastActive)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Collaborators Section */}
       <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 backdrop-blur-sm border border-amber-700/30 rounded-lg shadow-lg text-amber-400">
@@ -678,7 +864,7 @@ const ProjectInfo = ({ projectData }) => {
                 <Users className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h2 className="text-xl font semigroup-bold">Collaborators</h2>
+                <h2 className="text-xl font-semibold">Collaborators</h2>
                 <p className="text-sm">
                   {collaborators.length}{" "}
                   {collaborators.length === 1
@@ -690,6 +876,7 @@ const ProjectInfo = ({ projectData }) => {
 
             {canManageCollaborators(currentUserRole) && (
               <button
+                type="button"
                 onClick={() => setShowAddForm(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-amber-900 rounded-lg hover:bg-amber-500 transition-colors"
               >
@@ -711,6 +898,7 @@ const ProjectInfo = ({ projectData }) => {
                   className="flex-1 px-3 py-2 border border-amber-600/30 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/10"
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
+                      e.preventDefault();
                       handleAddCollaboratorAdvanced();
                     }
                   }}
@@ -718,6 +906,7 @@ const ProjectInfo = ({ projectData }) => {
                   disabled={isAddingCollaborator}
                 />
                 <button
+                  type="button"
                   onClick={handleAddCollaboratorAdvanced}
                   disabled={isAddingCollaborator}
                   className="px-4 py-2 bg-amber-400 text-amber-900 rounded-lg hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -725,21 +914,17 @@ const ProjectInfo = ({ projectData }) => {
                   {isAddingCollaborator ? "Sending..." : "Send Invite"}
                 </button>
                 <button
-                  onClick={() => setShowAddForm(false)}
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setError("");
+                  }}
                   className="px-3 py-2 text-amber-400 hover:text-amber-300 transition-colors"
                   disabled={isAddingCollaborator}
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
-              {/* Error/Success Messages */}
-              {error && (
-                <div className="mt-3 text-red-400 text-sm">{error}</div>
-              )}
-              {success && (
-                <div className="mt-3 text-green-400 text-sm">{success}</div>
-              )}
             </div>
           )}
 
@@ -756,7 +941,7 @@ const ProjectInfo = ({ projectData }) => {
             ) : (
               collaborators.map((collaborator) => (
                 <div
-                  key={collaborator._id}
+                  key={collaborator.id}
                   className="flex items-center justify-between p-4 bg-amber-700/20 rounded-lg border border-amber-600/30 hover:bg-amber-700/30 transition-colors"
                 >
                   {/* User Info */}
@@ -764,14 +949,14 @@ const ProjectInfo = ({ projectData }) => {
                     <div className="relative">
                       <img
                         src={
-                          collaborator.user.profile?.avatar ||
+                          collaborator.user?.profile?.avatar ||
                           "/default-avatar.png"
                         }
-                        alt={`${collaborator.user.fullName}'s avatar`}
+                        alt={`${collaborator.user?.username}'s avatar`}
                         className="w-12 h-12 rounded-full object-cover border-2 border-amber-600/30"
                         onError={(e) => {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            collaborator.user.fullName
+                            collaborator.user?.username || "User"
                           )}&background=6366f1&color=fff`;
                         }}
                       />
@@ -781,22 +966,19 @@ const ProjectInfo = ({ projectData }) => {
                         </div>
                       )}
                     </div>
-
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="font-semibold text-amber-400">
-                          {collaborator.user.fullName}
+                          {collaborator?.username || "Unknown"}
                         </h3>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-amber-400 text-amber-400`}
-                        >
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border border-amber-400 text-amber-400">
                           {getRoleIcon(collaborator.role)}
                           {collaborator.role}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-4 text-sm text-amber-400">
-                        <span>@{collaborator.user.username}</span>
+                        <span>@{collaborator?.username}</span>
                         <span>Joined {formatDate(collaborator.joinedAt)}</span>
                       </div>
 
@@ -808,7 +990,7 @@ const ProjectInfo = ({ projectData }) => {
                               (permission, index) => (
                                 <span
                                   key={index}
-                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium border border-amber-400 text-amber-400`}
+                                  className="inline-block px-2 py-0.5 rounded text-xs font-medium border border-amber-400 text-amber-400"
                                 >
                                   {permission.replace(/_/g, " ")}
                                 </span>
@@ -822,28 +1004,44 @@ const ProjectInfo = ({ projectData }) => {
                   {/* Actions */}
                   {canManageCollaborators(currentUserRole) &&
                     collaborator.role !== "owner" &&
-                    collaborator.user._id !== currentUserId && (
+                    collaborator.userId !== currentUserId && (
                       <div className="flex items-center gap-2">
                         {/* Role Selector */}
                         <select
                           value={collaborator.role}
                           onChange={(e) =>
                             handleUpdateRoleWithOptimisticUpdate(
-                              collaborator._id,
+                              collaborator.id,
                               e.target.value
                             )
                           }
-                          className="px-3 py-1 text-sm border border-amber-600/30 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent text-amber-400 bg-amber-700/10"
+                          className="appearance-none px-4 py-1.5 pr-9 text-sm font-medium rounded-lg border border-amber-500/30 bg-amber-900/30 text-amber-300 shadow-sm transition-all duration-200 hover:border-amber-400/60 hover:bg-amber-900/40 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400"
                         >
-                          <option value="viewer">Viewer</option>
-                          <option value="commenter">Commenter</option>
-                          <option value="editor">Editor</option>
+                          <option
+                            value="viewer"
+                            className="bg-amber-900 text-amber-200"
+                          >
+                            Viewer
+                          </option>
+                          <option
+                            value="commenter"
+                            className="bg-amber-900 text-amber-200"
+                          >
+                            Commenter
+                          </option>
+                          <option
+                            value="editor"
+                            className="bg-amber-900 text-amber-200"
+                          >
+                            Editor
+                          </option>
                         </select>
 
                         {/* Remove Button */}
                         <button
+                          type="button"
                           onClick={() =>
-                            handleRemoveCollaboratorOptimistic(collaborator._id)
+                            handleRemoveCollaboratorOptimistic(collaborator.id)
                           }
                           className="p-2 text-amber-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                           title="Remove collaborator"
@@ -854,7 +1052,7 @@ const ProjectInfo = ({ projectData }) => {
                     )}
 
                   {/* Current User Indicator */}
-                  {collaborator.user._id === currentUserId && (
+                  {collaborator.userId === currentUserId && (
                     <span className="px-3 py-1 text-xs font-medium text-amber-900 bg-amber-400 border border-amber-600/30 rounded-full">
                       You
                     </span>
@@ -872,41 +1070,31 @@ const ProjectInfo = ({ projectData }) => {
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-amber-400">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
-                  >
+                  <span className="px-2 py-0.5 rounded border border-amber-400 text-amber-400">
                     read
                   </span>
                   <span>View project content</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
-                  >
+                  <span className="px-2 py-0.5 rounded border border-amber-400 text-amber-400">
                     write
                   </span>
                   <span>Edit project files</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
-                  >
+                  <span className="px-2 py-0.5 rounded border border-amber-400 text-amber-400">
                     delete
                   </span>
                   <span>Delete files/content</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
-                  >
+                  <span className="px-2 py-0.5 rounded border border-amber-400 text-amber-400">
                     manage collaborators
                   </span>
                   <span>Add/remove users</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded border border-amber-400 text-amber-400`}
-                  >
+                  <span className="px-2 py-0.5 rounded border border-amber-400 text-amber-400">
                     manage settings
                   </span>
                   <span>Change project settings</span>
@@ -919,5 +1107,4 @@ const ProjectInfo = ({ projectData }) => {
     </div>
   );
 };
-
 export default ProjectInfo;
