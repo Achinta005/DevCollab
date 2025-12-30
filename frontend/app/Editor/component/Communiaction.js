@@ -71,6 +71,7 @@ export default function Communication({ projectId, userId, userName }) {
   }, [projectId]);
 
   // ============ SOCKET.IO SETUP ============
+
   useEffect(() => {
     const socket = io(`${process.env.NEXT_PUBLIC_API_URL}/ws/communication`, {
       query: { projectId, userId, userName },
@@ -79,10 +80,16 @@ export default function Communication({ projectId, userId, userName }) {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      console.log("✅ Connected to Socket.IO");
+    });
+
+    // NEW: Handle the full active users list
+    socket.on("active_users", (users) => {
+      console.log("📋 Active users updated:", users);
+      setActiveUsers(users);
     });
 
     socket.on("chat_message", (msg) => {
-
       setMessages((prev) => [...prev, msg]);
     });
 
@@ -114,14 +121,8 @@ export default function Communication({ projectId, userId, userName }) {
       setTypingUsers((prev) => prev.filter((u) => u !== data.userName));
     });
 
+    // UPDATED: Keep this for showing join messages in chat
     socket.on("user_joined", (data) => {
-      setActiveUsers((prev) => {
-        const exists = prev.find((u) => u.userId === data.userId);
-        if (!exists) {
-          return [...prev, data];
-        }
-        return prev;
-      });
       setMessages((prev) => [
         ...prev,
         {
@@ -133,8 +134,8 @@ export default function Communication({ projectId, userId, userName }) {
       ]);
     });
 
+    // UPDATED: Keep this for showing leave messages in chat
     socket.on("user_left", (data) => {
-      setActiveUsers((prev) => prev.filter((u) => u.userId !== data.userId));
       cleanupPeerConnection(data.userId);
       setMessages((prev) => [
         ...prev,
@@ -147,7 +148,7 @@ export default function Communication({ projectId, userId, userName }) {
       ]);
     });
 
-    // ============ VIDEO SIGNALING ============
+    // Video signaling handlers...
     socket.on("video_offer", async ({ offer, from }) => {
       await handleVideoOffer(offer, from);
     });

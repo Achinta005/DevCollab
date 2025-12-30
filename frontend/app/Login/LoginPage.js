@@ -46,17 +46,22 @@ const LoginForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
 
     try {
       const data = await authService.login(formData);
 
-      setAuthToken(data.token);
-      router.push("/");
-      router.refresh();
+      if (data.success) {
+        setAuthToken(data.token);
+        router.push("/");
+        router.refresh();
+      } else {
+        setError(data.message || "Invalid credentials");
+      }
     } catch (err) {
-      setError("Network error. Please try again.");
+      setError(err.message || "Network error. Please try again.");
       console.error("Login error:", err);
     } finally {
       setLoading(false);
