@@ -26,14 +26,14 @@ import {
 // Dynamically import collaboration utilities to avoid SSR issues
 const CollaborationUtils = dynamic(
   () => import("./components/cursor-tracking"),
-  { ssr: false }
+  { ssr: false },
 );
 
 // Dynamically import WebsocketProvider to avoid SSR issues
 const WebsocketProvider = dynamic(
   () =>
     import("y-websocket").then((mod) => ({ default: mod.WebsocketProvider })),
-  { ssr: false }
+  { ssr: false },
 );
 
 function CodeEditor({ userId, userName }) {
@@ -139,7 +139,7 @@ function CodeEditor({ userId, userName }) {
   const isOwner = project?.owner?.id === currentUserId;
 
   const collaborator = project?.collaborators?.find(
-    (c) => c.userId === currentUserId
+    (c) => c.userId === currentUserId,
   );
 
   const isEditor = collaborator?.role === "editor";
@@ -147,12 +147,14 @@ function CodeEditor({ userId, userName }) {
   const canEdit = isOwner || isEditor;
 
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("devcollabtoken") : null;
+    typeof window !== "undefined"
+      ? localStorage.getItem("devcollabtoken")
+      : null;
 
   // Build file tree
   const tree = useMemo(
     () => buildFileTree(flatFolders, allFiles, localFiles),
-    [flatFolders, allFiles, localFiles]
+    [flatFolders, allFiles, localFiles],
   );
 
   // Load collaboration utilities
@@ -269,7 +271,7 @@ function CodeEditor({ userId, userName }) {
 
       const fileType = selectedFile.originalName.split(".").pop().toLowerCase();
       const supportedTypes = JUDGE0_LANGUAGES.map(
-        (lang) => lang.extension
+        (lang) => lang.extension,
       ).concat(["html", "css", "json", "xml", "md", "yaml", "yml"]);
 
       if (fileType === "pdf") {
@@ -279,7 +281,7 @@ function CodeEditor({ userId, userName }) {
         });
         if (!response.ok)
           throw new Error(
-            `Failed to fetch download URL: ${response.statusText}`
+            `Failed to fetch download URL: ${response.statusText}`,
           );
         const data = await response.json();
         if (!data.success)
@@ -292,7 +294,7 @@ function CodeEditor({ userId, userName }) {
 
       if (!supportedTypes.includes(fileType)) {
         setErrorMessage(
-          `File type (.${fileType}) is not supported in the code editor.`
+          `File type (.${fileType}) is not supported in the code editor.`,
         );
         setEditorContent("");
         setIsPdf(false);
@@ -326,7 +328,7 @@ function CodeEditor({ userId, userName }) {
       setContentLoaded(true);
     } catch (error) {
       setErrorMessage(
-        `❌ Error: ${error.message}. Please check if the file exists or you have access.`
+        `❌ Error: ${error.message}. Please check if the file exists or you have access.`,
       );
       setEditorContent("");
       setIsPdf(false);
@@ -404,15 +406,20 @@ function CodeEditor({ userId, userName }) {
 
       const roomId = `file_${fileId}_${projectId}`;
 
-      const provider = new WebsocketProvider(WS_BASE, roomId, ydoc, {
-        params: {
-          userId,
-          userName,
-          token,
-          fileId,
-          projectId,
+      const provider = new WebsocketProvider(
+        WS_BASE,
+        `api/chat/${roomId}`,
+        ydoc,
+        {
+          params: {
+            userId,
+            userName,
+            token,
+            fileId,
+            projectId,
+          },
         },
-      });
+      );
 
       // Status event logging
       provider.on("status", (event) => {
@@ -510,7 +517,7 @@ function CodeEditor({ userId, userName }) {
       const binding = setupEnhancedMonacoBinding(
         ytextRef.current,
         editor,
-        providerRef.current
+        providerRef.current,
       );
 
       monacoBindingRef.current = binding;
@@ -523,7 +530,7 @@ function CodeEditor({ userId, userName }) {
         if (position) {
           awarenessManagerRef.current.setCursor(
             position.lineNumber,
-            position.column
+            position.column,
           );
         }
 
@@ -534,7 +541,7 @@ function CodeEditor({ userId, userName }) {
             selection.startColumn,
             selection.endLineNumber,
             selection.endColumn,
-            selectedText
+            selectedText,
           );
         } else {
           awarenessManagerRef.current.clearSelection();
@@ -620,7 +627,7 @@ function CodeEditor({ userId, userName }) {
             method: "PUT",
             headers: getAuthHeaders(),
             body: JSON.stringify({ content: contentToSave }),
-          }
+          },
         );
 
         if (!response.ok)
@@ -654,7 +661,7 @@ function CodeEditor({ userId, userName }) {
     if (isLocalFile) {
       if (
         !window.confirm(
-          `Are you sure you want to delete "${file.originalName}"? This action cannot be undone.`
+          `Are you sure you want to delete "${file.originalName}"? This action cannot be undone.`,
         )
       )
         return;
@@ -676,7 +683,7 @@ function CodeEditor({ userId, userName }) {
 
     if (
       !window.confirm(
-        `Are you sure you want to delete "${file.originalName}" from the server? This action cannot be undone.`
+        `Are you sure you want to delete "${file.originalName}" from the server? This action cannot be undone.`,
       )
     )
       return;
@@ -693,7 +700,7 @@ function CodeEditor({ userId, userName }) {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.message || `Failed to delete file: ${response.statusText}`
+          errorData.message || `Failed to delete file: ${response.statusText}`,
         );
       }
 
@@ -733,7 +740,7 @@ function CodeEditor({ userId, userName }) {
   const handleCreateFile = () => {
     if (!projectId) {
       setErrorMessage(
-        "❌ Error: Project ID is missing. Please ensure you are in a valid project context."
+        "❌ Error: Project ID is missing. Please ensure you are in a valid project context.",
       );
       return;
     }
@@ -784,7 +791,7 @@ function CodeEditor({ userId, userName }) {
       setNewFileType("js");
       setNewFileFolder("root");
       setErrorMessage(
-        "✅ File created locally! Edit and save to upload to server."
+        "✅ File created locally! Edit and save to upload to server.",
       );
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
@@ -858,7 +865,7 @@ function CodeEditor({ userId, userName }) {
         setExecutionOutput(data.output || "");
       } else {
         setExecutionOutput(
-          data.output || "Program executed successfully (no output)"
+          data.output || "Program executed successfully (no output)",
         );
         setExecutionError(data.error || "");
       }
