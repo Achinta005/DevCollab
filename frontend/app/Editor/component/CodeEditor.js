@@ -147,7 +147,7 @@ function CodeEditor({ userId, userName }) {
   const canEdit = isOwner || isEditor;
 
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    typeof window !== "undefined" ? localStorage.getItem("devcollabtoken") : null;
 
   // Build file tree
   const tree = useMemo(

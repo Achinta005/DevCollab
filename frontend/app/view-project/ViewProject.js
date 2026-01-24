@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { projectService } from "../../services/projectService";
 import { getUserFromToken } from "../lib/auth";
 import { userService } from "../../services";
+import { getAuthToken } from "../lib/auth";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 const SUCCESS_MESSAGE_TIMEOUT = 2000;
@@ -21,7 +22,14 @@ const ViewProject = ({ onClose = () => {} }) => {
   const [userData, setUserData] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [activeTab, setActiveTab] = useState("owned"); // "owned" or "collaborated"
+  const [token, setToken] = useState(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const storedToken = getAuthToken();
+    if (storedToken) setToken(storedToken);
+    else setError("Authentication token not found. Please login again.");
+  }, []);
 
   const fetchUserProjects = async () => {
     if (!projectService.getUserProjects) {
@@ -43,10 +51,12 @@ const ViewProject = ({ onClose = () => {} }) => {
   const deleteProject = async (projectId) => {
     setDeletingProjectId(projectId);
     try {
-      const response = await projectService.deleteProject(projectId);
+      const response = await projectService.deleteProject(projectId, token);
       if (response.success) {
         // Remove from owned projects only
-        setOwnedProjects((prev) => prev.filter((project) => project.id !== projectId));
+        setOwnedProjects((prev) =>
+          prev.filter((project) => project.id !== projectId),
+        );
         setSuccess("Project deleted successfully!");
         setTimeout(() => setSuccess(null), SUCCESS_MESSAGE_TIMEOUT);
       } else {
@@ -119,7 +129,8 @@ const ViewProject = ({ onClose = () => {} }) => {
   };
 
   // Get current projects based on active tab
-  const currentProjects = activeTab === "owned" ? ownedProjects : collaboratedProjects;
+  const currentProjects =
+    activeTab === "owned" ? ownedProjects : collaboratedProjects;
 
   if (loading) {
     return (
@@ -169,7 +180,9 @@ const ViewProject = ({ onClose = () => {} }) => {
             aria-label={`Delete project ${project.name}`}
             aria-busy={deletingProjectId === project.id}
             className={`p-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all duration-200 ${
-              deletingProjectId === project.id ? "opacity-50 cursor-not-allowed" : ""
+              deletingProjectId === project.id
+                ? "opacity-50 cursor-not-allowed"
+                : ""
             }`}
           >
             <Trash2 size={20} />
@@ -232,7 +245,9 @@ const ViewProject = ({ onClose = () => {} }) => {
             <ProjectCard
               key={project.id}
               project={project}
-              isOwner={activeTab === "owned" || userData?.id === project.owner?.id}
+              isOwner={
+                activeTab === "owned" || userData?.id === project.owner?.id
+              }
             />
           ))}
         </div>

@@ -55,7 +55,7 @@ export default function Communication({ projectId, userId, userName }) {
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/messages`,
-          { credentials: "include" }
+          { credentials: "include" },
         );
         if (response.ok) {
           const data = await response.json();
@@ -73,10 +73,13 @@ export default function Communication({ projectId, userId, userName }) {
   // ============ SOCKET.IO SETUP ============
 
   useEffect(() => {
-    const socket = io(`${process.env.NEXT_PUBLIC_API_URL}/ws/communication`, {
-      query: { projectId, userId, userName },
-      transports: ["websocket"],
-    });
+    const socket = io(
+      `${process.env.NEXT_PUBLIC_SOCKET_URL}/DVCL/ws/communication`,
+      {
+        query: { projectId, userId, userName },
+        transports: ["websocket"],
+      },
+    );
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -95,7 +98,7 @@ export default function Communication({ projectId, userId, userName }) {
 
     socket.on("message_edited", (data) => {
       setMessages((prev) =>
-        prev.map((msg) => (msg._id === data._id ? { ...msg, ...data } : msg))
+        prev.map((msg) => (msg._id === data._id ? { ...msg, ...data } : msg)),
       );
     });
 
@@ -104,15 +107,15 @@ export default function Communication({ projectId, userId, userName }) {
         prev.map((msg) =>
           msg._id === data.messageId
             ? { ...msg, deleted: true, content: "Message deleted" }
-            : msg
-        )
+            : msg,
+        ),
       );
     });
 
     socket.on("typing_start", (data) => {
       if (data.userName !== userName) {
         setTypingUsers((prev) =>
-          prev.includes(data.userName) ? prev : [...prev, data.userName]
+          prev.includes(data.userName) ? prev : [...prev, data.userName],
         );
       }
     });
@@ -468,7 +471,7 @@ export default function Communication({ projectId, userId, userName }) {
                   {
                     hour: "2-digit",
                     minute: "2-digit",
-                  }
+                  },
                 )}
                 {msg.edited && " (edited)"}
               </p>

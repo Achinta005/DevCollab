@@ -31,7 +31,6 @@ const UserProfile = () => {
   // Fetch full user profile after token data is set
   useEffect(() => {
     if (!user || !user.username) return;
-
     const loadUserData = async () => {
       try {
         const data = await userService.getProfile(user.username);

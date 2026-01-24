@@ -54,7 +54,7 @@ const ResetPassword = () => {
     setError("")
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/Email`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reset/Email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: formData.username })
@@ -79,7 +79,7 @@ const ResetPassword = () => {
     setError("")
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/send-otp`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reset/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ const ResetPassword = () => {
     setError("")
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/verify-otp`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reset/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -151,7 +151,7 @@ const ResetPassword = () => {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reset/reset-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reset/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

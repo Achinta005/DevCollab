@@ -4,7 +4,7 @@ export const authService = {
   //API CALL FOR USER REGISTRATION
   register: async (formData) => {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
       {
         method: "POST",
         headers: {
@@ -26,7 +26,7 @@ export const authService = {
 
   login: async (formData) => {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
       {
         method: "POST",
         headers: {

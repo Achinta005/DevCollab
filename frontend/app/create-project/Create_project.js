@@ -50,7 +50,7 @@ const Create_project = ({ onClose }) => {
     };
 
     try {
-      const response = await projectService.createProject(payload);
+      const response = await projectService.createProject(payload,token);
 
       if (response.success) {
         setSuccess("Project created successfully!");

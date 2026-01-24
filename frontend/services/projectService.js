@@ -1,74 +1,114 @@
-import { method } from "lodash";
 import { apiCall } from "./baseApi";
 
 export const projectService = {
   //API CALL FOR GETTING OWN PROJECTS(In "View Your Projects") USING USER ID
   getUserProjects: async () => {
-    return apiCall("/api/projects/my-projects");
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/my-projects", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
   },
 
   //API CALL FOR FINDING PROJECT BASED ON PROJECT INVITE CODE
   linkProjects: async (inviteCode) => {
-    return apiCall("/api/projects/link_projects", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/link_projects", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ inviteCode }),
     });
   },
 
   //API CALL FOR JOINING A PROJECT USING INVITE CODE
   joinProject: async (inviteCode) => {
-    return apiCall("/api/projects/join", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/join", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ inviteCode }),
     });
   },
 
   //API CALL FOR CREATING NEW PROJECT
-  createProject: async (payload) => {
-    return apiCall("/api/projects/create", {
+  createProject: async (payload, token) => {
+    return apiCall("/projects/create", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(payload),
     });
   },
 
   //API CALL FOR FETCHING PROJECT METADATA USING PROJECT ID
   getProject: async (projectId) => {
-    return apiCall("/api/projects/get-project", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/get-project", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ projectID: projectId }),
     });
   },
 
   //API CALL FOR UPDATING ROLE
   updateCollaboratorRole: async (projectId, collaboratorId, newRole) => {
-    return apiCall("/api/projects/update-collaborator-role", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/update-collaborator-role", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ projectId, collaboratorId, newRole }),
     });
   },
 
   //API CALL FOR REMOVING COLLABORATOR
   removeCollaborator: async (projectId, collaboratorId) => {
-    return apiCall("/api/projects/remove-collaborator", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/remove-collaborator", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ projectId, collaboratorId }),
     });
   },
 
   //API CALL FOR ADDING COLLABORATOR
   addCollaborator: async (projectId, email, role = "editor") => {
-    return apiCall("/api/projects/add-collaborator", {
+    const token = localStorage.getItem("devcollabtoken");
+    return apiCall("/projects/add-collaborator", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ projectId, email, role }),
     });
   },
 
   //API CALL FOR UPDAING PROJECT METADATA
   updateProject: async (formData) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("devcollabtoken");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/projects/update-project`,
+      `${process.env.NEXT_PUBLIC_API_URL}/projects/update-project`,
       {
         method: "PUT",
         headers: {
@@ -76,7 +116,7 @@ export const projectService = {
           ...(token && { Authorization: `Bearer ${token}` }),
         },
         body: JSON.stringify(formData),
-      }
+      },
     );
 
     const text = await response.text();
@@ -91,9 +131,13 @@ export const projectService = {
   },
 
   //API CALL FOR DELETING PROJECT
-  deleteProject: async (projectId) => {
-    return apiCall(`/api/projects/delete-project/${projectId}`, {
+  deleteProject: async (projectId, token) => {
+    return apiCall(`/projects/delete-project/${projectId}`, {
       method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
   },
 };

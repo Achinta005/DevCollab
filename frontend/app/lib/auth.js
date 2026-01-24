@@ -3,17 +3,17 @@ import { jwtDecode } from "jwt-decode";
 
 export const setAuthToken = (token) => {
   if (token?.split(".").length === 3) {
-    localStorage.setItem("token", token);
+    localStorage.setItem("devcollabtoken", token);
   } else {
     console.warn("Attempted to store invalid token:", token);
   }
 };
 
 export const getAuthToken = () =>
-  typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  typeof window !== "undefined" ? localStorage.getItem("devcollabtoken") : null;
 
 export const removeAuthToken = () => {
-  if (typeof window !== "undefined") localStorage.removeItem("token");
+  if (typeof window !== "undefined") localStorage.removeItem("devcollabtoken");
 };
 
 export const isAuthenticated = () => {

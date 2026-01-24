@@ -1,7 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export const apiCall = async (endpoint, options = {}) => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("devcollabtoken");
   
   // Only set Content-Type for non-FormData requests
   const defaultHeaders = {};

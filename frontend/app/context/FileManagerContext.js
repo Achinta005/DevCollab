@@ -10,12 +10,12 @@ export const FileManagerProvider = ({ children, projectData }) => {
   const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/files`;
 
   const getAuthHeaders = () => ({
-    Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") : "mock-token"}`,
+    Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("devcollabtoken") : "mock-token"}`,
     "Content-Type": "application/json",
   });
 
 const getUploadHeaders = () => ({
-  Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") : "mock-token"}`,
+  Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("devcollabtoken") : "mock-token"}`,
   // No Content-Type - let browser set it for FormData
 });
 
